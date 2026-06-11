@@ -16,9 +16,7 @@ export class CapsuleWidget extends WidgetType {
         return other.content === this.content && 
                other.isExpanded === this.isExpanded && 
                other.absoluteFrom === this.absoluteFrom &&
-               other.settings.triggerText === this.settings.triggerText &&
-               other.settings.styleType === this.settings.styleType &&
-               other.settings.interactionMode === this.settings.interactionMode;
+               JSON.stringify(other.settings) === JSON.stringify(this.settings);
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -40,35 +38,57 @@ export class CapsuleWidget extends WidgetType {
         wrapper.appendChild(trigger);
         wrapper.appendChild(contentSpan);
 
+        if (this.settings.styleType === "custom") {
+            const targetEl = this.isExpanded ? contentSpan : trigger;
+            targetEl.style.color = this.settings.customTextColor;
+            targetEl.style.backgroundColor = this.settings.customBgColor;
+            targetEl.style.borderColor = this.settings.customBorderColor;
+            targetEl.style.borderStyle = this.settings.customBorderStyle;
+            targetEl.style.borderWidth = this.settings.customBorderWidth;
+            targetEl.style.borderRadius = this.settings.customBorderRadius;
+            targetEl.style.padding = this.settings.customPadding;
+            targetEl.style.fontSize = this.settings.customFontSize;
+        }
+
         this.bindEvents(wrapper, view);
         return wrapper;
     }
 
     private bindEvents(wrapper: HTMLElement, view: EditorView): void {
         const mode = this.settings.interactionMode;
+        let clickTimer: any = null;
 
-        // 1. رصد النقر المزدوج لفتح الماركداون الخام للتعديل الصريح فوراً
+        wrapper.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (clickTimer !== null) return;
+
+            // تسريع المهلة الزمنية لـ 150ms لتكون النقرة طبيعية ولقطة
+            clickTimer = setTimeout(() => {
+                clickTimer = null;
+                if (mode === "click" || mode === "both") {
+                    view.dispatch({
+                        effects: toggleSingleCapsuleEffect.of(this.absoluteFrom)
+                    });
+                }
+            }, 150);
+        });
+
         wrapper.addEventListener("dblclick", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
+            if (clickTimer !== null) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+
             view.dispatch({
                 effects: startEditCapsuleEffect.of(this.absoluteFrom),
                 selection: { anchor: this.absoluteFrom + this.settings.startSymbol.length },
                 scrollIntoView: true
             });
-        });
-
-        // 2. النقر المفرد العادي للتحكم في التوسيع الانسيابي المدمج
-        wrapper.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (mode === "click" || mode === "both") {
-                view.dispatch({
-                    effects: toggleSingleCapsuleEffect.of(this.absoluteFrom)
-                });
-            }
         });
 
         if (mode === "hover" || mode === "both") {

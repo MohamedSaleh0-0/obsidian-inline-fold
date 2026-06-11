@@ -1,9 +1,10 @@
 {
-  "id": "local-inline-capsule",
-  "name": "Local Inline Capsule",
+  "id": "inline-fold",
+  "name": "Inline Fold",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "Encapsulates inline note details recursively using deep stack parsing tokens.",
+  "description": "Seamlessly collapse, fold, and hide nested text inline using custom delimiters. Perfect for spoilers, inline details, hover peek, and compact note-taking with full bidirectional Arabic (RTL) support and atomic cursor skipping.",
   "author": "Mohamed Saleh",
+  "authorUrl": "https://github.com/MohamedSaleh0-0",
   "isDesktopOnly": false
 }
