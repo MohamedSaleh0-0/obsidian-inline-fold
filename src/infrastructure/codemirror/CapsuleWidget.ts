@@ -1,6 +1,6 @@
 import { WidgetType, EditorView } from "@codemirror/view";
 import { CapsuleSettings } from "../../domain/models/Settings";
-import { toggleSingleCapsuleEffect } from "./Extension";
+import { toggleSingleCapsuleEffect, startEditCapsuleEffect } from "./Extension";
 
 export class CapsuleWidget extends WidgetType {
     constructor(
@@ -13,7 +13,6 @@ export class CapsuleWidget extends WidgetType {
     }
 
     eq(other: CapsuleWidget): boolean {
-        // إصلاح: مقارنة الـ triggerText والـ styleType هنا يجبر كود ميرور على إعادة بناء مظهر النقاط فوراً عند تعديل الإعدادات
         return other.content === this.content && 
                other.isExpanded === this.isExpanded && 
                other.absoluteFrom === this.absoluteFrom &&
@@ -48,17 +47,24 @@ export class CapsuleWidget extends WidgetType {
     private bindEvents(wrapper: HTMLElement, view: EditorView): void {
         const mode = this.settings.interactionMode;
 
+        // 1. رصد النقر المزدوج لفتح الماركداون الخام للتعديل الصريح فوراً
+        wrapper.addEventListener("dblclick", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            view.dispatch({
+                effects: startEditCapsuleEffect.of(this.absoluteFrom),
+                selection: { anchor: this.absoluteFrom + this.settings.startSymbol.length },
+                scrollIntoView: true
+            });
+        });
+
+        // 2. النقر المفرد العادي للتحكم في التوسيع الانسيابي المدمج
         wrapper.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
 
-            if (this.settings.cursorBehavior === "reveal") {
-                // إصلاح: إجبار مؤشر الكيبورد على الدخول فوراً خلف علامة الفتح لتفكيك الكبسولة تلقائياً وبدء التعديل السلس
-                view.dispatch({
-                    selection: { anchor: this.absoluteFrom + this.settings.startSymbol.length },
-                    scrollIntoView: true
-                });
-            } else {
+            if (mode === "click" || mode === "both") {
                 view.dispatch({
                     effects: toggleSingleCapsuleEffect.of(this.absoluteFrom)
                 });

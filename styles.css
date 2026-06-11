@@ -1,3 +1,13 @@
+/* فرض مظهر اليد الحرة الاحترافي على كافة مكونات الواجهة الرسومية للإضافة */
+.inline-capsule-wrapper,
+.inline-capsule-trigger,
+.inline-capsule-content {
+    cursor: pointer !important;
+    text-decoration: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+
 .inline-capsule-wrapper {
     display: inline;
     unicode-bidi: isolate;
@@ -12,12 +22,12 @@
 
 .inline-capsule-wrapper.is-expanded .inline-capsule-content,
 .inline-capsule-wrapper.is-hover-revealed .inline-capsule-content {
-    display: inline;
+    display: inline !important;
 }
 
 .inline-capsule-wrapper.is-expanded .inline-capsule-trigger,
 .inline-capsule-wrapper.is-hover-revealed .inline-capsule-trigger {
-    display: none;
+    display: none !important;
 }
 
 .inline-capsule-trigger, .inline-capsule-content {
@@ -25,44 +35,52 @@
     unicode-bidi: isolate;
 }
 
-/* Ghost Theme Layouts */
+/* التطهير الكلي لثيم الـ Ghost لمنع محاكاة الروابط البنفسجية المزعجة */
 .inline-capsule-wrapper.theme-ghost .inline-capsule-trigger {
-    color: var(--text-accent);
-    cursor: pointer;
-    font-weight: 500;
-    text-decoration: underline;
+    color: var(--text-muted) !important;
+    font-weight: 600 !important;
+    opacity: 0.8;
+    text-decoration: none !important;
+    border-bottom: none !important;
+}
+
+.inline-capsule-wrapper.theme-ghost .inline-capsule-trigger:hover {
+    color: var(--text-normal) !important;
+    opacity: 1;
 }
 
 .inline-capsule-wrapper.theme-ghost .inline-capsule-content {
-    color: var(--text-muted);
-    font-style: italic;
-    border-bottom: 1px dashed var(--text-accent);
+    color: var(--text-normal) !important;
+    background-color: var(--background-modifier-form-field) !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-style: normal !important;
+    text-decoration: none !important;
+    border-bottom: none !important;
 }
 
 /* Smart Pill Layouts */
 .inline-capsule-wrapper.theme-pill .inline-capsule-trigger {
-    background-color: var(--background-modifier-border);
-    color: var(--text-normal);
-    padding: 1px 6px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    cursor: pointer;
-    border: 1px solid var(--background-modifier-border-hover);
+    background-color: var(--background-modifier-border) !important;
+    color: var(--text-normal) !important;
+    padding: 1px 6px !important;
+    border-radius: 12px !important;
+    font-size: 0.85em !important;
+    border: 1px solid var(--background-modifier-border-hover) !important;
 }
 
 .inline-capsule-wrapper.theme-pill .inline-capsule-content {
-    background-color: var(--background-primary-alt);
-    color: var(--text-accent);
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-primary-alt) !important;
+    color: var(--text-accent) !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    border: 1px solid var(--background-modifier-border) !important;
 }
 
 /* Bracket Block Layouts */
 .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger {
-    color: var(--text-warning);
-    font-family: var(--font-monospace);
-    cursor: pointer;
+    color: var(--text-warning) !important;
+    font-family: var(--font-monospace) !important;
 }
 
 .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::before {
@@ -74,6 +92,6 @@
 }
 
 .inline-capsule-wrapper.theme-bracket .inline-capsule-content {
-    font-family: var(--font-monospace);
-    color: var(--text-success);
+    font-family: var(--font-monospace) !important;
+    color: var(--text-success) !important;
 }

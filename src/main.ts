@@ -15,7 +15,6 @@ export default class InlineCapsulePlugin extends Plugin {
         this.registerMarkdownPostProcessor(createMarkdownPostProcessor(this.settings, this.expandedCache));
         this.addSettingTab(new InlineCapsuleSettingTab(this.app, this));
 
-        // إضافة ميزة وأمر التغليف السريع المخصص بناءً على متطلباتك الدقيقة (A و C)
         this.addCommand({
             id: "wrap-inline-capsule-selection",
             name: "Encapsulate Selected Text",
@@ -45,12 +44,15 @@ export default class InlineCapsulePlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
         
+        // الإصلاح المرجعي: تمرير كائن مستنسخ كلياً لتفادي جمود الكاش في دالة المقارنة الرسومية
+        const clonedSettings = { ...this.settings };
+        
         this.app.workspace.iterateAllLeaves((leaf) => {
             if (leaf.view.getViewType() === "markdown") {
                 const markdownView = leaf.view as any;
                 if (markdownView.editor && markdownView.editor.cm) {
                     markdownView.editor.cm.dispatch({
-                        effects: updateCapsuleSettingsEffect.of(this.settings)
+                        effects: updateCapsuleSettingsEffect.of(clonedSettings)
                     });
                 }
             }
