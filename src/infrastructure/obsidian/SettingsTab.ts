@@ -11,9 +11,6 @@ export class InlineCapsuleSettingTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.createEl("h2", { text: "Inline Fold - Dynamic Classes Manager" });
 
-        // -------------------------------------------------------------
-        // القسم الأول: الإعدادات السلوكية العامة للمحرر
-        // -------------------------------------------------------------
         containerEl.createEl("h3", { text: "Global Behavioral Settings" });
 
         new Setting(containerEl)
@@ -41,11 +38,42 @@ export class InlineCapsuleSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
+        new Setting(containerEl)
+            .setName("Protect Collapsed Boundaries")
+            .setDesc("Prevent the keyboard cursor from expanding raw markdown at outer edges unless explicitly unshielded.")
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.protectCollapsedBoundaries)
+                .onChange(async (value: boolean) => {
+                    this.plugin.settings.protectCollapsedBoundaries = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+    .setName("Hotkey Expansion Target")
+    .setDesc("Decide if the global shortcut targets the entire line or balances focus on the closest capsule.")
+    .addDropdown(dropdown => dropdown
+        .addOption("line", "Line-wide Bulking")
+        .addOption("closest", "Closest Capsule Only")
+        .setValue(this.plugin.settings.hotkeyExpansionTarget)
+        .onChange(async (value: string) => {
+            this.plugin.settings.hotkeyExpansionTarget = value as "line" | "closest";
+            await this.plugin.saveSettings();
+        }));
+
+        new Setting(containerEl)
+            .setName("Hover Collapse Delay (ms)")
+            .setDesc("Add a decay grace period buffer before a hovered element drops its visual state.")
+            .addSlider(slider => slider
+                .setLimits(0, 1000, 50)
+                .setValue(this.plugin.settings.hoverCollapseDelay)
+                .setDynamicTooltip()
+                .onChange(async (value: number) => {
+                    this.plugin.settings.hoverCollapseDelay = value;
+                    await this.plugin.saveSettings();
+                }));
+
         containerEl.createEl("hr");
 
-        // -------------------------------------------------------------
-        // القسم الثاني: إدارة وتوليد الكلاسات والمجموعات الديناميكية
-        // -------------------------------------------------------------
         const classesHeader = containerEl.createEl("div", { cls: "inline-fold-classes-header" });
         classesHeader.style.display = "flex";
         classesHeader.style.justifyContent = "space-between";

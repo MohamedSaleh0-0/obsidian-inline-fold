@@ -3,6 +3,8 @@ import { CapsuleSettings, FoldClass } from "../../domain/models/Settings";
 import { toggleSingleCapsuleEffect, setHoveredPositionEffect } from "./Extension";
 
 export class CapsuleWidget extends WidgetType {
+    private leaveTimeout: any = null;
+
     constructor(
         private readonly content: string,
         private readonly globalSettings: CapsuleSettings,
@@ -19,7 +21,9 @@ export class CapsuleWidget extends WidgetType {
                other.absoluteFrom === this.absoluteFrom &&
                JSON.stringify(other.foldClass) === JSON.stringify(this.foldClass) &&
                other.globalSettings.interactionMode === this.globalSettings.interactionMode &&
-               other.globalSettings.linkCursorToExpansion === this.globalSettings.linkCursorToExpansion;
+               other.globalSettings.linkCursorToExpansion === this.globalSettings.linkCursorToExpansion &&
+               other.globalSettings.protectCollapsedBoundaries === this.globalSettings.protectCollapsedBoundaries &&
+               other.globalSettings.hoverCollapseDelay === this.globalSettings.hoverCollapseDelay;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -78,9 +82,13 @@ export class CapsuleWidget extends WidgetType {
 
         if (mode === "hover" || mode === "both") {
             wrapper.addEventListener("mouseenter", () => {
+                if (this.leaveTimeout) {
+                    clearTimeout(this.leaveTimeout);
+                    this.leaveTimeout = null;
+                }
+
                 wrapper.classList.add("is-hover-revealed");
                 
-                // إرسال إشارة إحداثي الهوفر الحالية للامتداد
                 view.dispatch({
                     effects: setHoveredPositionEffect.of(this.absoluteFrom)
                 });
@@ -92,19 +100,29 @@ export class CapsuleWidget extends WidgetType {
                     triggerSpan.style.display = "none";
                 }
             });
+
             wrapper.addEventListener("mouseleave", () => {
-                wrapper.classList.remove("is-hover-revealed");
+                const delay = this.globalSettings.hoverCollapseDelay;
 
-                // تصفير إشارة الهوفر برمجياً فور خروج الماوس
-                view.dispatch({
-                    effects: setHoveredPositionEffect.of(null)
-                });
+                const executeLeave = () => {
+                    wrapper.classList.remove("is-hover-revealed");
 
-                const contentSpan = wrapper.querySelector(".inline-capsule-content") as HTMLElement;
-                const triggerSpan = wrapper.querySelector(".inline-capsule-trigger") as HTMLElement;
-                if (contentSpan && triggerSpan && !this.isExpanded) {
-                    contentSpan.style.display = "none";
-                    triggerSpan.style.display = "inline-block";
+                    view.dispatch({
+                        effects: setHoveredPositionEffect.of(null)
+                    });
+
+                    const contentSpan = wrapper.querySelector(".inline-capsule-content") as HTMLElement;
+                    const triggerSpan = wrapper.querySelector(".inline-capsule-trigger") as HTMLElement;
+                    if (contentSpan && triggerSpan && !this.isExpanded) {
+                        contentSpan.style.display = "none";
+                        triggerSpan.style.display = "inline-block";
+                    }
+                };
+
+                if (delay > 0) {
+                    this.leaveTimeout = setTimeout(executeLeave, delay);
+                } else {
+                    executeLeave();
                 }
             });
         }

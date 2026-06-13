@@ -18,12 +18,18 @@ export interface FoldClass {
 export interface CapsuleSettings {
     interactionMode: "click" | "hover" | "both";
     linkCursorToExpansion: "atomicOnCollapse" | "alwaysReveal";
+    protectCollapsedBoundaries: boolean;
+    hotkeyExpansionTarget: "line" | "closest";
+    hoverCollapseDelay: number;
     classes: FoldClass[];
 }
 
 export const DEFAULT_SETTINGS: CapsuleSettings = {
     interactionMode: "both",
     linkCursorToExpansion: "atomicOnCollapse",
+    protectCollapsedBoundaries: true,
+    hotkeyExpansionTarget: "line",
+    hoverCollapseDelay: 200,
     classes: [
         {
             id: "default-fold",

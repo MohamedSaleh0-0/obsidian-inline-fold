@@ -85,7 +85,6 @@ export function createCapsuleExtension(
                 const nodes = parser.parseLine(line.text, line.from);
 
                 for (const node of nodes) {
-                    // التعديل الجوهري: السماح للمؤشر بالتدفق الحر داخل الكبسولة المفتوحة، أو الملموسة بالهوفر، أو لو كان المؤشر بالأساس بداخل نطاق الحروف مسبقاً
                     if (openAbsolutePositions.has(node.from) || 
                         hoveredAbsolutePosition === node.from ||
                         (startHead > node.from && startHead < node.to)) {
@@ -159,16 +158,19 @@ function buildDecorations(
                 if (isCursorInside) return;
             }
 
-            // فحص فوري لما إذا كان المؤشر يقع حالياً داخل نطاق حروف العقدة للتعديل النشط
-            let isCursorInside = false;
-            for (let range of selectionRanges) {
-                if (range.head >= node.from && range.head <= node.to) {
-                    isCursorInside = true;
-                    break;
-                }
+            let checkProximity = true;
+            if (settings.protectCollapsedBoundaries) {
+                checkProximity = isExpanded || isHovered;
             }
 
-            if (isExpanded || isHovered || isCursorInside) {
+            if (checkProximity) {
+                let isCursorInside = false;
+                for (let range of selectionRanges) {
+                    if (range.head >= node.from && range.head <= node.to) {
+                        isCursorInside = true;
+                        break;
+                    }
+                }
                 if (isCursorInside) return;
             }
 

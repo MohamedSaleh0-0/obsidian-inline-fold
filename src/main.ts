@@ -56,7 +56,6 @@ export default class InlineCapsulePlugin extends Plugin {
 
         const parser = new CapsuleParser(this.settings.classes);
 
-        // أولاً: الأوامر التبديلية الهيكلية المخصصة لكل فئة (Encapsulate / Decapsulate)
         this.settings.classes.forEach((foldClass: FoldClass) => {
             const commandId = `inline-fold-toggle-${foldClass.id}`;
             const commandName = `Toggle Encapsulation: ${foldClass.name}`;
@@ -124,9 +123,8 @@ export default class InlineCapsulePlugin extends Plugin {
             this.registeredCommandIds.push(`${this.manifest.id}:${commandId}`);
         });
 
-        // ثانياً: الأمر الموحد الجديد كلياً لتبديل حالة عرض السطر الحالي بالكامل (Toggle Line Expansion)
         const lineCommandId = "inline-fold-toggle-current-line";
-        const lineCommandName = "Toggle Expansion on Current Line";
+        const lineCommandName = "Toggle expansion/collapse of folded text";
 
         this.addCommand({
             id: lineCommandId,
@@ -142,15 +140,34 @@ export default class InlineCapsulePlugin extends Plugin {
                 for (let l = 0; l < cursor.line; l++) {
                     lineOffset += editor.getLine(l).length + 1;
                 }
+                const absoluteCursorPos = lineOffset + cursor.ch;
 
                 const parsedNodes = parser.parseLine(currentLineText, lineOffset);
                 if (parsedNodes.length === 0) return;
 
-                parsedNodes.forEach(node => {
-                    cmInstance.dispatch({
-                        effects: toggleSingleCapsuleEffect.of(node.from)
+                if (this.settings.hotkeyExpansionTarget === "line") {
+                    parsedNodes.forEach(node => {
+                        cmInstance.dispatch({
+                            effects: toggleSingleCapsuleEffect.of(node.from)
+                        });
                     });
-                });
+                } else {
+                    let closestNode = parsedNodes[0];
+                    let minDistance = Math.abs(absoluteCursorPos - (closestNode.from + closestNode.to) / 2);
+
+                    parsedNodes.forEach(node => {
+                        const mid = (node.from + node.to) / 2;
+                        const distance = Math.abs(absoluteCursorPos - mid);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestNode = node;
+                        }
+                    });
+
+                    cmInstance.dispatch({
+                        effects: toggleSingleCapsuleEffect.of(closestNode.from)
+                    });
+                }
             }
         });
 
