@@ -29,14 +29,17 @@ export class CapsuleWidget extends WidgetType {
     toDOM(view: EditorView): HTMLElement {
         const wrapper = document.createElement("span");
         wrapper.className = `inline-capsule-wrapper theme-${this.foldClass.styleType}`;
-        
+        wrapper.style.cursor = "pointer"; // Hard override against CodeMirror canvas text cursors
+
         const trigger = document.createElement("span");
         trigger.className = "inline-capsule-trigger";
         trigger.innerText = this.foldClass.triggerText;
+        trigger.style.cursor = "pointer"; // Force pointer finger style
 
         const contentSpan = document.createElement("span");
         contentSpan.className = "inline-capsule-content";
         contentSpan.innerText = this.content;
+        contentSpan.style.cursor = "pointer"; // Force pointer finger style
 
         if (this.isExpanded) {
             wrapper.classList.add("is-expanded");
