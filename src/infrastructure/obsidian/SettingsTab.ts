@@ -9,28 +9,16 @@ export class InlineCapsuleSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl("h2", { text: "Inline Capsule Ultimate Settings" });
+        containerEl.createEl("h2", { text: "Inline Fold - Dynamic Classes Manager" });
 
-        // 1. القائمة الأساسية للثيمات
-        new Setting(containerEl)
-            .setName("Capsule Visual Theme")
-            .setDesc("Toggle the layout configuration or unlock fully customizable parameters.")
-            .addDropdown(dropdown => dropdown
-                .addOption("ghost", "Ghost Inline")
-                .addOption("pill", "Smart Pill")
-                .addOption("bracket", "Bracket Block")
-                .addOption("custom", "Custom Layout (Unlock Controls Below)")
-                .setValue(this.plugin.settings.styleType)
-                .onChange(async (value: string) => {
-                    this.plugin.settings.styleType = value as "ghost" | "pill" | "bracket" | "custom";
-                    await this.plugin.saveSettings();
-                    this.display(); 
-                }));
+        // -------------------------------------------------------------
+        // القسم الأول: الإعدادات السلوكية العامة للمحرر
+        // -------------------------------------------------------------
+        containerEl.createEl("h3", { text: "Global Behavioral Settings" });
 
-        // 2. نمط التفاعل
         new Setting(containerEl)
             .setName("Interaction Trigger Mode")
-            .setDesc("Choose how the capsule expands (Hover vs Click vs Both).")
+            .setDesc("Choose how all folds expand globally (Hover vs Click vs Both).")
             .addDropdown(dropdown => dropdown
                 .addOption("click", "Click Only")
                 .addOption("hover", "Hover Only")
@@ -41,132 +29,175 @@ export class InlineCapsuleSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // 3. سلوك المؤشر
         new Setting(containerEl)
-            .setName("Cursor Interactive Behavior")
-            .setDesc("Control cursor skipping or markdown reveal behavior.")
+            .setName("Link Cursor Traversal To Expansion")
+            .setDesc("Determine how the keyboard cursor interacts with capsule expansion states.")
             .addDropdown(dropdown => dropdown
-                .addOption("reveal", "Reveal Markdown on Selection")
-                .addOption("bypass", "Keep Collapsed (Atomic Cursor Skip)")
-                .setValue(this.plugin.settings.cursorBehavior)
+                .addOption("atomicOnCollapse", "Atomic Skip on Collapse (Fluent Edit inside Expanded)")
+                .addOption("alwaysReveal", "Always Reveal Markdown on Cursor Proximity")
+                .setValue(this.plugin.settings.linkCursorToExpansion)
                 .onChange(async (value: string) => {
-                    this.plugin.settings.cursorBehavior = value as "reveal" | "bypass";
+                    this.plugin.settings.linkCursorToExpansion = value as "atomicOnCollapse" | "alwaysReveal";
                     await this.plugin.saveSettings();
                 }));
 
-        // 4. رمز الفتح - مسترجع وثابت
-        new Setting(containerEl)
-            .setName("Opening Delimiter")
-            .setDesc("The symbol string that begins a capsule block.")
-            .addText(text => text
-                .setPlaceholder("[=")
-                .setValue(this.plugin.settings.startSymbol)
-                .onChange(async (value) => {
-                    this.plugin.settings.startSymbol = value || "[=";
+        containerEl.createEl("hr");
+
+        // -------------------------------------------------------------
+        // القسم الثاني: إدارة وتوليد الكلاسات والمجموعات الديناميكية
+        // -------------------------------------------------------------
+        const classesHeader = containerEl.createEl("div", { cls: "inline-fold-classes-header" });
+        classesHeader.style.display = "flex";
+        classesHeader.style.justifyContent = "space-between";
+        classesHeader.style.alignItems = "center";
+        classesHeader.style.marginBottom = "15px";
+
+        const classTitle = classesHeader.createEl("h3", { text: "Configured Fold Classes" });
+        classTitle.style.margin = "0";
+
+        new Setting(classesHeader)
+            .addButton(button => button
+                .setButtonText("+ Add New Class")
+                .setCta()
+                .onClick(async () => {
+                    const newId = "class-" + Date.now();
+                    this.plugin.settings.classes.push({
+                        id: newId,
+                        name: `Class (${this.plugin.settings.classes.length + 1})`,
+                        startSymbol: "[?",
+                        endSymbol: "?]",
+                        styleType: "pill",
+                        triggerText: "??",
+                        customTextColor: "var(--text-normal)",
+                        customBgColor: "var(--background-modifier-form-field)",
+                        customBorderColor: "var(--background-modifier-border)",
+                        customBorderStyle: "solid",
+                        customBorderWidth: "1px",
+                        customBorderRadius: "12px",
+                        customPadding: "2px 6px",
+                        customFontSize: "inherit"
+                    });
                     await this.plugin.saveSettings();
+                    this.display();
                 }));
 
-        // 5. رمز الإغلاق - مسترجع وثابت
-        new Setting(containerEl)
-            .setName("Closing Delimiter")
-            .setDesc("The symbol string that terminates a capsule block.")
-            .addText(text => text
-                .setPlaceholder("=]")
-                .setValue(this.plugin.settings.endSymbol)
-                .onChange(async (value) => {
-                    this.plugin.settings.endSymbol = value || "=]";
-                    await this.plugin.saveSettings();
-                }));
+        this.plugin.settings.classes.forEach((foldClass, index) => {
+            const classContainer = containerEl.createEl("div", { cls: "fold-class-card" });
+            classContainer.style.border = "1px solid var(--background-modifier-border)";
+            classContainer.style.borderRadius = "8px";
+            classContainer.style.padding = "15px";
+            classContainer.style.marginBottom = "15px";
+            classContainer.style.backgroundColor = "var(--background-primary-alt)";
 
-        // 6. نص المؤشر المخفي - مسترجع وثابت
-        new Setting(containerEl)
-            .setName("Collapsed Indicator Text")
-            .setDesc("The string displayed inside sentences when data is hidden.")
-            .addText(text => text
-                .setPlaceholder("..")
-                .setValue(this.plugin.settings.triggerText)
-                .onChange(async (value) => {
-                    this.plugin.settings.triggerText = value || "..";
-                    await this.plugin.saveSettings();
-                }));
+            const cardHeader = classContainer.createEl("div");
+            cardHeader.style.display = "flex";
+            cardHeader.style.justifyContent = "space-between";
+            cardHeader.style.alignItems = "center";
+            cardHeader.style.marginBottom = "10px";
 
-        // كتل التحكم البصري الفائق الشاملة (تفتح فقط عند اختيار الخيار المخصص)
-        if (this.plugin.settings.styleType === "custom") {
-            containerEl.createEl("h3", { text: "Advanced Micro-Styling Panels" });
+            cardHeader.createEl("h4", { text: foldClass.name });
 
-            new Setting(containerEl)
-                .setName("Text Color")
-                .setDesc("Supports Hex, RGB, or native Obsidian variables (e.g. var(--text-normal)).")
+            if (this.plugin.settings.classes.length > 1) {
+                new Setting(cardHeader)
+                    .addButton(btn => btn
+                        .setButtonText("Delete Class")
+                        .setWarning()
+                        .onClick(async () => {
+                            this.plugin.settings.classes.splice(index, 1);
+                            await this.plugin.saveSettings();
+                            this.display();
+                        }));
+            }
+
+            new Setting(classContainer)
+                .setName("Class Identity Name")
+                .setDesc("A label to identify this structural group.")
                 .addText(text => text
-                    .setValue(this.plugin.settings.customTextColor)
+                    .setValue(foldClass.name)
                     .onChange(async (val) => {
-                        this.plugin.settings.customTextColor = val || "inherit";
+                        foldClass.name = val || "Unnamed Class";
                         await this.plugin.saveSettings();
                     }));
 
-            new Setting(containerEl)
-                .setName("Background Color")
-                .setDesc("Set the primary background container color layout.")
+            new Setting(classContainer)
+                .setName("Opening Delimiter")
+                .setDesc("The distinct characters that open this fold type.")
                 .addText(text => text
-                    .setValue(this.plugin.settings.customBgColor)
+                    .setValue(foldClass.startSymbol)
                     .onChange(async (val) => {
-                        this.plugin.settings.customBgColor = val || "transparent";
+                        foldClass.startSymbol = val || "[=";
                         await this.plugin.saveSettings();
                     }));
 
-            new Setting(containerEl)
-                .setName("Border Style")
-                .setDesc("Choose the border decoration surrounding the token.")
+            new Setting(classContainer)
+                .setName("Closing Delimiter")
+                .setDesc("The distinct characters that terminate this fold type.")
+                .addText(text => text
+                    .setValue(foldClass.endSymbol)
+                    .onChange(async (val) => {
+                        foldClass.endSymbol = val || "=]";
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(classContainer)
+                .setName("Collapsed Indicator Text")
+                .setDesc("The placeholder displayed when text is hidden inside this class.")
+                .addText(text => text
+                    .setValue(foldClass.triggerText)
+                    .onChange(async (val) => {
+                        foldClass.triggerText = val || "..";
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(classContainer)
+                .setName("Visual Theme Layout")
+                .setDesc("Pick a layout archetype or choose Custom to unlock fine-grain control styles.")
                 .addDropdown(drop => drop
-                    .addOption("none", "None")
-                    .addOption("solid", "Solid Line")
-                    .addOption("dashed", "Dashed Line")
-                    .addOption("dotted", "Dotted Line")
-                    .setValue(this.plugin.settings.customBorderStyle)
+                    .addOption("ghost", "Ghost Inline")
+                    .addOption("pill", "Smart Pill")
+                    .addOption("bracket", "Bracket Block")
+                    .addOption("custom", "Custom Layout (Unlock Micro Panels)")
+                    .setValue(foldClass.styleType)
                     .onChange(async (val: string) => {
-                        this.plugin.settings.customBorderStyle = val as "none" | "solid" | "dashed" | "dotted";
+                        foldClass.styleType = val as "ghost" | "pill" | "bracket" | "custom";
                         await this.plugin.saveSettings();
+                        this.display();
                     }));
 
-            new Setting(containerEl)
-                .setName("Border Color")
-                .setDesc("Set the color outlining your custom border.")
-                .addText(text => text
-                    .setValue(this.plugin.settings.customBorderColor)
-                    .onChange(async (val) => {
-                        this.plugin.settings.customBorderColor = val || "transparent";
-                        await this.plugin.saveSettings();
-                    }));
+            if (foldClass.styleType === "custom") {
+                const customSection = classContainer.createEl("div", { cls: "custom-styling-panel" });
+                customSection.style.paddingLeft = "15px";
+                customSection.style.borderLeft = "2px solid var(--interactive-accent)";
+                customSection.style.marginTop = "10px";
 
-            new Setting(containerEl)
-                .setName("Border Radius")
-                .setDesc("Control border corner roundness (e.g. 4px or 12px for pills).")
-                .addText(text => text
-                    .setValue(this.plugin.settings.customBorderRadius)
-                    .onChange(async (val) => {
-                        this.plugin.settings.customBorderRadius = val || "0px";
-                        await this.plugin.saveSettings();
-                    }));
+                new Setting(customSection)
+                    .setName("Text Color")
+                    .addText(t => t.setValue(foldClass.customTextColor).onChange(async v => { foldClass.customTextColor = v || "inherit"; await this.plugin.saveSettings(); }));
 
-            new Setting(containerEl)
-                .setName("Custom Padding")
-                .setDesc("Internal spacing boundaries (e.g. 2px 6px).")
-                .addText(text => text
-                    .setValue(this.plugin.settings.customPadding)
-                    .onChange(async (val) => {
-                        this.plugin.settings.customPadding = val || "0px";
-                        await this.plugin.saveSettings();
-                    }));
+                new Setting(customSection)
+                    .setName("Background Color")
+                    .addText(t => t.setValue(foldClass.customBgColor).onChange(async v => { foldClass.customBgColor = v || "transparent"; await this.plugin.saveSettings(); }));
 
-            new Setting(containerEl)
-                .setName("Font Size Adjustments")
-                .setDesc("Scale the text elements size constraints (e.g. 0.9em or inherit).")
-                .addText(text => text
-                    .setValue(this.plugin.settings.customFontSize)
-                    .onChange(async (val) => {
-                        this.plugin.settings.customFontSize = val || "inherit";
-                        await this.plugin.saveSettings();
-                    }));
-        }
+                new Setting(customSection)
+                    .setName("Border Style")
+                    .addDropdown(d => d.addOption("none", "None").addOption("solid", "Solid").addOption("dashed", "Dashed").addOption("dotted", "Dotted").setValue(foldClass.customBorderStyle).onChange(async v => { foldClass.customBorderStyle = v as any; await this.plugin.saveSettings(); }));
+
+                new Setting(customSection)
+                    .setName("Border Color")
+                    .addText(t => t.setValue(foldClass.customBorderColor).onChange(async v => { foldClass.customBorderColor = v || "transparent"; await this.plugin.saveSettings(); }));
+
+                new Setting(customSection)
+                    .setName("Border Radius")
+                    .addText(t => t.setValue(foldClass.customBorderRadius).onChange(async v => { foldClass.customBorderRadius = v || "0px"; await this.plugin.saveSettings(); }));
+
+                new Setting(customSection)
+                    .setName("Custom Padding")
+                    .addText(t => t.setValue(foldClass.customPadding).onChange(async v => { foldClass.customPadding = v || "0px"; await this.plugin.saveSettings(); }));
+
+                new Setting(customSection)
+                    .setName("Font Size")
+                    .addText(t => t.setValue(foldClass.customFontSize).onChange(async v => { foldClass.customFontSize = v || "inherit"; await this.plugin.saveSettings(); }));
+            }
+        });
     }
 }

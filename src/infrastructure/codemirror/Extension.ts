@@ -1,6 +1,7 @@
 import { Extension, StateField, StateEffect, EditorState, EditorSelection } from "@codemirror/state";
 import { EditorView, Decoration, DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder, Prec } from "@codemirror/state";
+import { editorLivePreviewField } from "obsidian";
 import { CapsuleSettings } from "../../domain/models/Settings";
 import { CapsuleParser } from "../../application/CapsuleParser";
 import { CapsuleWidget } from "./CapsuleWidget";
@@ -8,10 +9,8 @@ import { CapsuleNode } from "../../domain/models/CapsuleNode";
 
 export const updateCapsuleSettingsEffect = StateEffect.define<CapsuleSettings>();
 export const toggleSingleCapsuleEffect = StateEffect.define<number>();
-export const startEditCapsuleEffect = StateEffect.define<number>();
 
 let openAbsolutePositions = new Set<number>();
-let activeEditPosition: number | null = null;
 
 export function createCapsuleExtension(
     initialSettings: CapsuleSettings,
@@ -19,24 +18,24 @@ export function createCapsuleExtension(
 ): Extension {
     
     let currentSettings = initialSettings;
-    let parser = new CapsuleParser(currentSettings.startSymbol, currentSettings.endSymbol);
+    let parser = new CapsuleParser(currentSettings.classes);
 
     const capsuleField = StateField.define<DecorationSet>({
         create(state) {
-            return buildDecorations(state, currentSettings, parser, openAbsolutePositions, activeEditPosition);
+            // إذا كان المستخدم في وضع الـ Source Mode، نلغي الحقن تماماً لإظهار الماركداون الخام
+            if (!state.field(editorLivePreviewField, false)) return Decoration.none;
+            return buildDecorations(state, currentSettings, parser, openAbsolutePositions);
         },
         update(decorations, tr) {
-            // زحزحة المواقع برمجياً عند الكتابة لمنع انزلاق المؤشرات
+            // فحص مستمر أثناء التحديث لضمان إسقاط الديكورات فور تبديل وضع الرؤية للـ Source Mode
+            if (!tr.state.field(editorLivePreviewField, false)) return Decoration.none;
+
             if (tr.docChanged) {
                 const shiftedPositions = new Set<number>();
                 openAbsolutePositions.forEach(pos => {
                     shiftedPositions.add(tr.changes.mapPos(pos));
                 });
                 openAbsolutePositions = shiftedPositions;
-
-                if (activeEditPosition !== null) {
-                    activeEditPosition = tr.changes.mapPos(activeEditPosition);
-                }
             }
 
             for (let effect of tr.effects) {
@@ -47,48 +46,18 @@ export function createCapsuleExtension(
                     } else {
                         openAbsolutePositions.add(targetPos);
                     }
-                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions, activeEditPosition);
-                }
-                if (effect.is(startEditCapsuleEffect)) {
-                    activeEditPosition = effect.value;
-                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions, activeEditPosition);
+                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
                 }
                 if (effect.is(updateCapsuleSettingsEffect)) {
                     currentSettings = effect.value;
-                    parser = new CapsuleParser(currentSettings.startSymbol, currentSettings.endSymbol);
+                    parser = new CapsuleParser(currentSettings.classes);
                     openAbsolutePositions.clear();
-                    activeEditPosition = null;
-                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions, activeEditPosition);
-                }
-            }
-
-            // فحص الخروج التلقائي الصارم: إذا تحرك المؤشر خارج حدود الكبسولة الحالية، نغلق الماركداون فوراً
-            if (activeEditPosition !== null) {
-                const head = tr.state.selection.main.head;
-                try {
-                    const line = tr.state.doc.lineAt(activeEditPosition);
-                    const nodes = parser.parseLine(line.text, line.from);
-                    let stillInside = false;
-
-                    for (const node of nodes) {
-                        if (node.from === activeEditPosition) {
-                            if (head >= node.from && head <= node.to) {
-                                stillInside = true;
-                            }
-                            break;
-                        }
-                    }
-
-                    if (!stillInside) {
-                        activeEditPosition = null;
-                    }
-                } catch (e) {
-                    activeEditPosition = null;
+                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
                 }
             }
 
             if (tr.docChanged || !tr.startState.selection.eq(tr.state.selection)) {
-                return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions, activeEditPosition);
+                return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
             }
             return decorations.map(tr.changes);
         },
@@ -96,7 +65,8 @@ export function createCapsuleExtension(
     });
 
     const selectionFilter = EditorState.transactionFilter.of((tr) => {
-        if (!tr.selection) return tr;
+        // حماية فلتر حركة المؤشر بره بيئة الـ Live Preview
+        if (!tr.selection || !tr.state.field(editorLivePreviewField, false)) return tr;
 
         const startHead = tr.startState.selection.main.head;
         let selectionChanged = false;
@@ -107,10 +77,11 @@ export function createCapsuleExtension(
                 const nodes = parser.parseLine(line.text, line.from);
 
                 for (const node of nodes) {
-                    // إذا كانت الكبسولة قيد التعديل النشط الصريح، نعطي الحصانة للمؤشر للتحرك بحرية داخل الحروف
-                    if (openAbsolutePositions.has(node.from) || activeEditPosition === node.from) continue;
+                    if (openAbsolutePositions.has(node.from)) {
+                        continue;
+                    }
 
-                    if (currentSettings.cursorBehavior === "bypass" && range.head > node.from && range.head < node.to) {
+                    if (currentSettings.linkCursorToExpansion === "atomicOnCollapse" && range.head > node.from && range.head < node.to) {
                         selectionChanged = true;
                         if (startHead <= node.from) {
                             return EditorSelection.cursor(node.to);
@@ -140,27 +111,32 @@ function buildDecorations(
     state: any,
     settings: CapsuleSettings,
     parser: CapsuleParser,
-    openPositions: Set<number>,
-    editPos: number | null
+    openPositions: Set<number>
 ): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selectionRanges = state.selection.ranges;
-    const startSym = settings.startSymbol;
 
     for (let i = 1; i <= state.doc.lines; i++) {
         const line = state.doc.line(i);
-        if (!line.text.includes(startSym)) continue;
+        
+        let hasAnyStart = false;
+        for (const c of settings.classes) {
+            if (line.text.includes(c.startSymbol)) {
+                hasAnyStart = true;
+                break;
+            }
+        }
+        if (!hasAnyStart) continue;
 
         const rootNodes = parser.parseLine(line.text, line.from);
 
         const processNode = (node: CapsuleNode) => {
-            // حصانة التعديل الصريح: إذا كانت الكبسولة يتم تعديلها الآن، نسقط الديكور تماماً لتظهر كـ Markdown أصلي
-            if (editPos === node.from) {
-                node.children.forEach(processNode);
-                return;
-            }
+            const foldClass = settings.classes.find(c => c.id === node.classId);
+            if (!foldClass) return;
 
-            if (settings.cursorBehavior === "reveal") {
+            const isExpanded = openPositions.has(node.from);
+
+            if (settings.linkCursorToExpansion === "alwaysReveal") {
                 let isCursorInside = false;
                 for (let range of selectionRanges) {
                     if (range.from <= node.to && range.to >= node.from) {
@@ -168,13 +144,19 @@ function buildDecorations(
                         break;
                     }
                 }
-                if (isCursorInside) {
-                    node.children.forEach(processNode);
-                    return;
-                }
+                if (isCursorInside) return;
             }
 
-            const isExpanded = openPositions.has(node.from);
+            if (isExpanded) {
+                let isCursorInside = false;
+                for (let range of selectionRanges) {
+                    if (range.head >= node.from && range.head <= node.to) {
+                        isCursorInside = true;
+                        break;
+                    }
+                }
+                if (isCursorInside) return;
+            }
 
             builder.add(
                 node.from,
@@ -183,6 +165,7 @@ function buildDecorations(
                     widget: new CapsuleWidget(
                         node.content,
                         settings,
+                        foldClass,
                         isExpanded,
                         node.from
                     )

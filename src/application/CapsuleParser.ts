@@ -1,86 +1,75 @@
-import { IParser } from "../domain/services/IParser";
+import { FoldClass } from "../domain/models/Settings";
 import { CapsuleNode } from "../domain/models/CapsuleNode";
 
-interface ActiveToken {
-    startIndex: number;
-    depth: number;
+interface OpenTag {
+    foldClass: FoldClass;
+    index: number;
 }
 
-export class CapsuleParser implements IParser {
-    constructor(
-        private readonly startSym: string, 
-        private readonly endSym: string
-    ) {}
+export class CapsuleParser {
+    constructor(private classes: FoldClass[]) {}
 
-    public parseLine(lineText: string, lineOffset: number): CapsuleNode[] {
-        const rootNodes: CapsuleNode[] = [];
-        const openTokensStack: ActiveToken[] = [];
-        const flattenedRegistry: CapsuleNode[] = [];
-
+    parseLine(text: string, lineFrom: number): CapsuleNode[] {
+        const roots: CapsuleNode[] = [];
+        const stack: OpenTag[] = [];
         let i = 0;
-        while (i < lineText.length) {
-            // 1. Evaluate opening boundary encounter
-            if (lineText.startsWith(this.startSym, i)) {
-                openTokensStack.push({
-                    startIndex: i,
-                    depth: openTokensStack.length
-                });
-                i += this.startSym.length;
-                continue;
-            }
 
-            // 2. Evaluate closing boundary encounter
-            if (lineText.startsWith(this.endSym, i)) {
-                if (openTokensStack.length > 0) {
-                    const matchedToken = openTokensStack.pop()!;
-                    const absoluteFrom = lineOffset + matchedToken.startIndex;
-                    const absoluteTo = lineOffset + i + this.endSym.length;
+        while (i < text.length) {
+            if (stack.length > 0) {
+                const activeTag = stack[stack.length - 1];
+                const endSym = activeTag.foldClass.endSymbol;
+                
+                if (text.startsWith(endSym, i)) {
+                    const openTag = stack.pop()!;
+                    const nodeFrom = lineFrom + openTag.index;
+                    const nodeTo = lineFrom + i + endSym.length;
                     
-                    const contentStart = matchedToken.startIndex + this.startSym.length;
-                    const contentEnd = i;
-                    const cleanContent = lineText.substring(contentStart, contentEnd);
+                    const contentFrom = openTag.index + openTag.foldClass.startSymbol.length;
+                    const contentText = text.substring(contentFrom, i);
 
                     const node: CapsuleNode = {
-                        from: absoluteFrom,
-                        to: absoluteTo,
-                        content: cleanContent,
-                        depth: matchedToken.depth,
+                        from: nodeFrom,
+                        to: nodeTo,
+                        content: contentText,
+                        classId: openTag.foldClass.id,
                         children: []
                     };
 
-                    flattenedRegistry.push(node);
-                }
-                i += this.endSym.length;
-                continue;
-            }
-            i++;
-        }
-
-        // 3. Construct a hierarchical parent-child tree mapping from the flattened registry
-        const sortedNodes = flattenedRegistry.sort((a, b) => a.from - b.from || b.to - a.to);
-
-        for (const targetNode of sortedNodes) {
-            let directParent: CapsuleNode | null = null;
-
-            for (const potentialParent of sortedNodes) {
-                if (
-                    potentialParent.from < targetNode.from && 
-                    potentialParent.to > targetNode.to && 
-                    potentialParent.depth === targetNode.depth - 1
-                ) {
-                    if (!directParent || potentialParent.from > directParent.from) {
-                        directParent = potentialParent;
-                    }
+                    roots.push(node);
+                    i += endSym.length;
+                    continue;
                 }
             }
 
-            if (directParent) {
-                directParent.children.push(targetNode);
-            } else if (targetNode.depth === 0) {
-                rootNodes.push(targetNode);
+            let matchedStart = false;
+            for (const foldClass of this.classes) {
+                if (text.startsWith(foldClass.startSymbol, i)) {
+                    stack.push({ foldClass, index: i });
+                    i += foldClass.startSymbol.length;
+                    matchedStart = true;
+                    break;
+                }
+            }
+
+            if (!matchedStart) {
+                i++;
             }
         }
 
-        return rootNodes;
+        return this.filterRootNodes(roots);
+    }
+
+    private filterRootNodes(nodes: CapsuleNode[]): CapsuleNode[] {
+        nodes.sort((a, b) => a.from - b.from || b.to - a.to);
+        const roots: CapsuleNode[] = [];
+        let lastTo = -1;
+
+        for (const node of nodes) {
+            if (node.from >= lastTo) {
+                roots.push(node);
+                lastTo = node.to;
+            }
+        }
+        return roots;
     }
 }

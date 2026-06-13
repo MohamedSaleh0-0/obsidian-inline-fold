@@ -1,9 +1,9 @@
-export interface CapsuleSettings {
-    styleType: "ghost" | "pill" | "bracket" | "custom";
-    interactionMode: "click" | "hover" | "both";
-    cursorBehavior: "reveal" | "bypass";
+export interface FoldClass {
+    id: string;
+    name: string;
     startSymbol: string;
     endSymbol: string;
+    styleType: "ghost" | "pill" | "bracket" | "custom";
     triggerText: string;
     customTextColor: string;
     customBgColor: string;
@@ -15,19 +15,31 @@ export interface CapsuleSettings {
     customFontSize: string;
 }
 
+export interface CapsuleSettings {
+    interactionMode: "click" | "hover" | "both";
+    linkCursorToExpansion: "atomicOnCollapse" | "alwaysReveal";
+    classes: FoldClass[];
+}
+
 export const DEFAULT_SETTINGS: CapsuleSettings = {
-    styleType: "ghost",
     interactionMode: "both",
-    cursorBehavior: "reveal",
-    startSymbol: "[=",
-    endSymbol: "=]",
-    triggerText: "..",
-    customTextColor: "var(--text-normal)",
-    customBgColor: "var(--background-modifier-form-field)",
-    customBorderColor: "var(--background-modifier-border)",
-    customBorderStyle: "solid",
-    customBorderWidth: "1px",
-    customBorderRadius: "4px",
-    customPadding: "2px 6px",
-    customFontSize: "inherit"
+    linkCursorToExpansion: "atomicOnCollapse",
+    classes: [
+        {
+            id: "default-fold",
+            name: "Default Fold",
+            startSymbol: "[=",
+            endSymbol: "=]",
+            styleType: "ghost",
+            triggerText: "..",
+            customTextColor: "var(--text-normal)",
+            customBgColor: "var(--background-modifier-form-field)",
+            customBorderColor: "var(--background-modifier-border)",
+            customBorderStyle: "solid",
+            customBorderWidth: "1px",
+            customBorderRadius: "4px",
+            customPadding: "2px 6px",
+            customFontSize: "inherit"
+        }
+    ]
 };
