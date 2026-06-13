@@ -1,6 +1,6 @@
 import { WidgetType, EditorView } from "@codemirror/view";
 import { CapsuleSettings, FoldClass } from "../../domain/models/Settings";
-import { toggleSingleCapsuleEffect } from "./Extension";
+import { toggleSingleCapsuleEffect, setHoveredPositionEffect } from "./Extension";
 
 export class CapsuleWidget extends WidgetType {
     constructor(
@@ -34,7 +34,6 @@ export class CapsuleWidget extends WidgetType {
         contentSpan.className = "inline-capsule-content";
         contentSpan.innerText = this.content;
 
-        // فرض التحكم الهيكلي الصارم مباشرة من الـ TS لضمان الحجب الفوري للنص
         if (this.isExpanded) {
             wrapper.classList.add("is-expanded");
             contentSpan.style.display = "inline";
@@ -80,18 +79,30 @@ export class CapsuleWidget extends WidgetType {
         if (mode === "hover" || mode === "both") {
             wrapper.addEventListener("mouseenter", () => {
                 wrapper.classList.add("is-hover-revealed");
+                
+                // إرسال إشارة إحداثي الهوفر الحالية للامتداد
+                view.dispatch({
+                    effects: setHoveredPositionEffect.of(this.absoluteFrom)
+                });
+
                 const contentSpan = wrapper.querySelector(".inline-capsule-content") as HTMLElement;
                 const triggerSpan = wrapper.querySelector(".inline-capsule-trigger") as HTMLElement;
-                if (contentSpan && triggerSpan && !wrapper.classList.contains("is-expanded")) {
+                if (contentSpan && triggerSpan && !this.isExpanded) {
                     contentSpan.style.display = "inline";
                     triggerSpan.style.display = "none";
                 }
             });
             wrapper.addEventListener("mouseleave", () => {
                 wrapper.classList.remove("is-hover-revealed");
+
+                // تصفير إشارة الهوفر برمجياً فور خروج الماوس
+                view.dispatch({
+                    effects: setHoveredPositionEffect.of(null)
+                });
+
                 const contentSpan = wrapper.querySelector(".inline-capsule-content") as HTMLElement;
                 const triggerSpan = wrapper.querySelector(".inline-capsule-trigger") as HTMLElement;
-                if (contentSpan && triggerSpan && !wrapper.classList.contains("is-expanded")) {
+                if (contentSpan && triggerSpan && !this.isExpanded) {
                     contentSpan.style.display = "none";
                     triggerSpan.style.display = "inline-block";
                 }

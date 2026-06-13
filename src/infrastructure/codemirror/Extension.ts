@@ -9,8 +9,10 @@ import { CapsuleNode } from "../../domain/models/CapsuleNode";
 
 export const updateCapsuleSettingsEffect = StateEffect.define<CapsuleSettings>();
 export const toggleSingleCapsuleEffect = StateEffect.define<number>();
+export const setHoveredPositionEffect = StateEffect.define<number | null>();
 
 let openAbsolutePositions = new Set<number>();
+let hoveredAbsolutePosition: number | null = null;
 
 export function createCapsuleExtension(
     initialSettings: CapsuleSettings,
@@ -22,12 +24,10 @@ export function createCapsuleExtension(
 
     const capsuleField = StateField.define<DecorationSet>({
         create(state) {
-            // إذا كان المستخدم في وضع الـ Source Mode، نلغي الحقن تماماً لإظهار الماركداون الخام
             if (!state.field(editorLivePreviewField, false)) return Decoration.none;
             return buildDecorations(state, currentSettings, parser, openAbsolutePositions);
         },
         update(decorations, tr) {
-            // فحص مستمر أثناء التحديث لضمان إسقاط الديكورات فور تبديل وضع الرؤية للـ Source Mode
             if (!tr.state.field(editorLivePreviewField, false)) return Decoration.none;
 
             if (tr.docChanged) {
@@ -36,9 +36,17 @@ export function createCapsuleExtension(
                     shiftedPositions.add(tr.changes.mapPos(pos));
                 });
                 openAbsolutePositions = shiftedPositions;
+
+                if (hoveredAbsolutePosition !== null) {
+                    hoveredAbsolutePosition = tr.changes.mapPos(hoveredAbsolutePosition);
+                }
             }
 
             for (let effect of tr.effects) {
+                if (effect.is(setHoveredPositionEffect)) {
+                    hoveredAbsolutePosition = effect.value;
+                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
+                }
                 if (effect.is(toggleSingleCapsuleEffect)) {
                     const targetPos = effect.value;
                     if (openAbsolutePositions.has(targetPos)) {
@@ -52,6 +60,7 @@ export function createCapsuleExtension(
                     currentSettings = effect.value;
                     parser = new CapsuleParser(currentSettings.classes);
                     openAbsolutePositions.clear();
+                    hoveredAbsolutePosition = null;
                     return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
                 }
             }
@@ -65,7 +74,6 @@ export function createCapsuleExtension(
     });
 
     const selectionFilter = EditorState.transactionFilter.of((tr) => {
-        // حماية فلتر حركة المؤشر بره بيئة الـ Live Preview
         if (!tr.selection || !tr.state.field(editorLivePreviewField, false)) return tr;
 
         const startHead = tr.startState.selection.main.head;
@@ -77,7 +85,10 @@ export function createCapsuleExtension(
                 const nodes = parser.parseLine(line.text, line.from);
 
                 for (const node of nodes) {
-                    if (openAbsolutePositions.has(node.from)) {
+                    // التعديل الجوهري: السماح للمؤشر بالتدفق الحر داخل الكبسولة المفتوحة، أو الملموسة بالهوفر، أو لو كان المؤشر بالأساس بداخل نطاق الحروف مسبقاً
+                    if (openAbsolutePositions.has(node.from) || 
+                        hoveredAbsolutePosition === node.from ||
+                        (startHead > node.from && startHead < node.to)) {
                         continue;
                     }
 
@@ -135,6 +146,7 @@ function buildDecorations(
             if (!foldClass) return;
 
             const isExpanded = openPositions.has(node.from);
+            const isHovered = hoveredAbsolutePosition === node.from;
 
             if (settings.linkCursorToExpansion === "alwaysReveal") {
                 let isCursorInside = false;
@@ -147,14 +159,16 @@ function buildDecorations(
                 if (isCursorInside) return;
             }
 
-            if (isExpanded) {
-                let isCursorInside = false;
-                for (let range of selectionRanges) {
-                    if (range.head >= node.from && range.head <= node.to) {
-                        isCursorInside = true;
-                        break;
-                    }
+            // فحص فوري لما إذا كان المؤشر يقع حالياً داخل نطاق حروف العقدة للتعديل النشط
+            let isCursorInside = false;
+            for (let range of selectionRanges) {
+                if (range.head >= node.from && range.head <= node.to) {
+                    isCursorInside = true;
+                    break;
                 }
+            }
+
+            if (isExpanded || isHovered || isCursorInside) {
                 if (isCursorInside) return;
             }
 

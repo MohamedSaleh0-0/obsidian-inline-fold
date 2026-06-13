@@ -1,6 +1,6 @@
 import { Plugin } from "obsidian";
 import { CapsuleSettings, DEFAULT_SETTINGS, FoldClass } from "./domain/models/Settings";
-import { createCapsuleExtension, updateCapsuleSettingsEffect } from "./infrastructure/codemirror/Extension";
+import { createCapsuleExtension, updateCapsuleSettingsEffect, toggleSingleCapsuleEffect } from "./infrastructure/codemirror/Extension";
 import { createMarkdownPostProcessor } from "./infrastructure/obsidian/PostProcessor";
 import { InlineCapsuleSettingTab } from "./infrastructure/obsidian/SettingsTab";
 import { CapsuleParser } from "./application/CapsuleParser";
@@ -17,7 +17,6 @@ export default class InlineCapsulePlugin extends Plugin {
         this.registerMarkdownPostProcessor(createMarkdownPostProcessor(this.settings, this.expandedCache));
         this.addSettingTab(new InlineCapsuleSettingTab(this.app, this));
 
-        // توليد الأوامر التبديلية المخصصة لكل فئة فور إقلاع الإضافة
         this.refreshPluginCommands();
     }
 
@@ -41,15 +40,10 @@ export default class InlineCapsulePlugin extends Plugin {
             }
         });
 
-        // تحديث وإعادة بناء الأوامر فوراً إذا قام المستخدم بإضافة أو حذف فئة من الإعدادات
         this.refreshPluginCommands();
     }
 
-    /**
-     * محرك توليد الأوامر التبديلية الديناميكية لكل فئة (Toggle Encapsulation Command Engine)
-     */
     refreshPluginCommands() {
-        // 1. تنظيف الأوامر القديمة المسجلة في ذاكرة أوبسيديان لتفادي التكرار
         const appCommands = (this.app as any).commands;
         if (appCommands && this.registeredCommandIds.length > 0) {
             this.registeredCommandIds.forEach(cmdId => {
@@ -60,9 +54,9 @@ export default class InlineCapsulePlugin extends Plugin {
             this.registeredCommandIds = [];
         }
 
-        // 2. بناء أمر تبديلي ذكي (Toggle) لكل فئة متاحة حالياً في المصفوفة
         const parser = new CapsuleParser(this.settings.classes);
 
+        // أولاً: الأوامر التبديلية الهيكلية المخصصة لكل فئة (Encapsulate / Decapsulate)
         this.settings.classes.forEach((foldClass: FoldClass) => {
             const commandId = `inline-fold-toggle-${foldClass.id}`;
             const commandName = `Toggle Encapsulation: ${foldClass.name}`;
@@ -77,14 +71,12 @@ export default class InlineCapsulePlugin extends Plugin {
                     const cursor = editor.getCursor();
                     const currentLineText = editor.getLine(cursor.line);
                     
-                    // تحويل إحداثيات المحرر الموضعية إلى إحداثيات خطية فريدة يفهمها الـ Parser
                     let lineOffset = 0;
                     for (let l = 0; l < cursor.line; l++) {
-                        lineOffset += editor.getLine(l).length + 1; // +1 لتعويض فاصل السطر \n
+                        lineOffset += editor.getLine(l).length + 1;
                     }
                     const absoluteCursorPos = lineOffset + cursor.ch;
 
-                    // فحص ما إذا كان المؤشر يقع حالياً داخل فئة مغلفة بالفعل
                     const parsedNodes = parser.parseLine(currentLineText, lineOffset);
                     let targetNode = null;
 
@@ -95,12 +87,9 @@ export default class InlineCapsulePlugin extends Plugin {
                         }
                     }
 
-                    // السيناريو أ: المؤشر يقع داخل كبسولة بالفعل -> نقوم بـ "فك التغليف التلقائي" (Decapsulate)
                     if (targetNode) {
                         const localFrom = targetNode.from - lineOffset;
                         const localTo = targetNode.to - lineOffset;
-                        
-                        // استخراج النص الأصلي المعزول بدون الرموز
                         const originalContent = targetNode.content;
                         
                         editor.replaceRange(
@@ -109,16 +98,13 @@ export default class InlineCapsulePlugin extends Plugin {
                             { line: cursor.line, ch: localTo }
                         );
                         
-                        // إعادة تموضع المؤشر بذكاء عند بداية النص المفكوك
                         editor.setCursor({ line: cursor.line, ch: localFrom });
                         return;
                     }
 
-                    // السيناريو ب: المؤشر في مساحة حرة -> نقوم بالتغليف العادي تتبعاً لحالة التحديد (Encapsulate)
                     if (editor.somethingSelected()) {
                         const selectedText = editor.getSelection();
                         
-                        // إذا كان النص المحدد مغلفاً بالفعل بنفس الرموز بشكل صريح، نقوم بفكه أيضاً كـ Toggle
                         if (selectedText.startsWith(startSym) && selectedText.endsWith(endSym)) {
                             const cleaned = selectedText.substring(startSym.length, selectedText.length - endSym.length);
                             editor.replaceSelection(cleaned);
@@ -126,7 +112,6 @@ export default class InlineCapsulePlugin extends Plugin {
                             editor.replaceSelection(`${startSym}${selectedText}${endSym}`);
                         }
                     } else {
-                        // إذا لم يكن هناك تحديد، نضع رموزاً فارغة ونرمي المؤشر في المنتصف مباشرة لبدء الكتابة
                         editor.replaceSelection(`${startSym}${endSym}`);
                         editor.setCursor({
                             line: cursor.line,
@@ -138,5 +123,37 @@ export default class InlineCapsulePlugin extends Plugin {
 
             this.registeredCommandIds.push(`${this.manifest.id}:${commandId}`);
         });
+
+        // ثانياً: الأمر الموحد الجديد كلياً لتبديل حالة عرض السطر الحالي بالكامل (Toggle Line Expansion)
+        const lineCommandId = "inline-fold-toggle-current-line";
+        const lineCommandName = "Toggle Expansion on Current Line";
+
+        this.addCommand({
+            id: lineCommandId,
+            name: lineCommandName,
+            editorCallback: (editor) => {
+                const cmInstance = (editor as any).cm;
+                if (!cmInstance) return;
+
+                const cursor = editor.getCursor();
+                const currentLineText = editor.getLine(cursor.line);
+                
+                let lineOffset = 0;
+                for (let l = 0; l < cursor.line; l++) {
+                    lineOffset += editor.getLine(l).length + 1;
+                }
+
+                const parsedNodes = parser.parseLine(currentLineText, lineOffset);
+                if (parsedNodes.length === 0) return;
+
+                parsedNodes.forEach(node => {
+                    cmInstance.dispatch({
+                        effects: toggleSingleCapsuleEffect.of(node.from)
+                    });
+                });
+            }
+        });
+
+        this.registeredCommandIds.push(`${this.manifest.id}:${lineCommandId}`);
     }
 }
