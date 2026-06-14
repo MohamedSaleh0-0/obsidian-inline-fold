@@ -29,18 +29,19 @@ export class CapsuleWidget extends WidgetType {
     toDOM(view: EditorView): HTMLElement {
         const wrapper = document.createElement("span");
         wrapper.className = `inline-capsule-wrapper theme-${this.foldClass.styleType}`;
-        wrapper.style.cursor = "pointer"; // Hard override against CodeMirror canvas text cursors
+        wrapper.style.cursor = "pointer";
 
         const trigger = document.createElement("span");
         trigger.className = "inline-capsule-trigger";
         trigger.innerText = this.foldClass.triggerText;
-        trigger.style.cursor = "pointer"; // Force pointer finger style
+        trigger.style.cursor = "pointer";
 
         const contentSpan = document.createElement("span");
         contentSpan.className = "inline-capsule-content";
         contentSpan.innerText = this.content;
-        contentSpan.style.cursor = "pointer"; // Force pointer finger style
+        contentSpan.style.cursor = "pointer";
 
+        // فرض التحكم الهيكلي للعرض والإخفاء
         if (this.isExpanded) {
             wrapper.classList.add("is-expanded");
             contentSpan.style.display = "inline";
@@ -50,10 +51,38 @@ export class CapsuleWidget extends WidgetType {
             trigger.style.display = "inline-block";
         }
 
-        wrapper.appendChild(trigger);
-        wrapper.appendChild(contentSpan);
+        // حقن التنسيقات الرسومية الخاصة بكل ثيم برمجياً لقطع الشك بالـ CSS
+        const type = this.foldClass.styleType;
+        if (type === "ghost") {
+            trigger.style.color = "var(--text-muted)";
+            trigger.style.fontWeight = "600";
+            trigger.style.opacity = "0.8";
 
-        if (this.foldClass.styleType === "custom") {
+            contentSpan.style.color = "var(--text-normal)";
+            contentSpan.style.backgroundColor = "var(--background-modifier-form-field)";
+            contentSpan.style.padding = "2px 6px";
+            contentSpan.style.borderRadius = "4px";
+        } else if (type === "pill") {
+            trigger.style.backgroundColor = "var(--background-modifier-border)";
+            trigger.style.color = "var(--text-normal)";
+            trigger.style.padding = "1px 6px";
+            trigger.style.borderRadius = "12px";
+            trigger.style.fontSize = "0.85em";
+            trigger.style.border = "1px solid var(--background-modifier-border-hover)";
+
+            contentSpan.style.backgroundColor = "var(--background-primary-alt)";
+            contentSpan.style.color = "var(--text-accent)";
+            contentSpan.style.padding = "2px 6px";
+            contentSpan.style.borderRadius = "4px";
+            contentSpan.style.border = "1px solid var(--background-modifier-border)";
+        } else if (type === "bracket") {
+            trigger.style.color = "var(--text-warning)";
+            trigger.style.fontFamily = "var(--font-monospace)";
+            trigger.innerText = `[${this.foldClass.triggerText}]`;
+
+            contentSpan.style.fontFamily = "var(--font-monospace)";
+            contentSpan.style.color = "var(--text-success)";
+        } else if (type === "custom") {
             const targetEl = this.isExpanded ? contentSpan : trigger;
             targetEl.style.color = this.foldClass.customTextColor;
             targetEl.style.backgroundColor = this.foldClass.customBgColor;
@@ -65,12 +94,16 @@ export class CapsuleWidget extends WidgetType {
             targetEl.style.fontSize = this.foldClass.customFontSize;
         }
 
-        this.bindEvents(wrapper, view);
+        wrapper.appendChild(trigger);
+        wrapper.appendChild(contentSpan);
+
+        this.bindEvents(wrapper, trigger, view);
         return wrapper;
     }
 
-    private bindEvents(wrapper: HTMLElement, view: EditorView): void {
+    private bindEvents(wrapper: HTMLElement, trigger: HTMLElement, view: EditorView): void {
         const mode = this.globalSettings.interactionMode;
+        const type = this.foldClass.styleType;
 
         wrapper.addEventListener("click", (e) => {
             e.preventDefault();
@@ -92,6 +125,11 @@ export class CapsuleWidget extends WidgetType {
 
                 wrapper.classList.add("is-hover-revealed");
                 
+                if (type === "ghost") {
+                    trigger.style.color = "var(--text-normal)";
+                    trigger.style.opacity = "1";
+                }
+
                 view.dispatch({
                     effects: setHoveredPositionEffect.of(this.absoluteFrom)
                 });
@@ -109,6 +147,11 @@ export class CapsuleWidget extends WidgetType {
 
                 const executeLeave = () => {
                     wrapper.classList.remove("is-hover-revealed");
+
+                    if (type === "ghost") {
+                        trigger.style.color = "var(--text-muted)";
+                        trigger.style.opacity = "0.8";
+                    }
 
                     view.dispatch({
                         effects: setHoveredPositionEffect.of(null)
