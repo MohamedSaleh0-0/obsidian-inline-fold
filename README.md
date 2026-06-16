@@ -52,7 +52,7 @@ To override the default placeholder text with a custom label or question, use th
 
 ### Manual Installation
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
-2. Move them into your vault's plugin directory: `<vault>/.obsidian/plugins/inline-fold/`.
+2. Move them into your vault's plugin directory: your-vault/.obsidian/plugins/inline-fold/
 3. Reload Obsidian and enable the plugin from your settings panel.
 
 ---
