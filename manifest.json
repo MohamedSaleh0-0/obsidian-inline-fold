@@ -3,7 +3,7 @@
   "name": "Inline Fold",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "Seamlessly collapse, fold, and hide nested text inline using custom delimiters. Perfect for spoilers, inline details, hover peek, and compact note-taking with full bidirectional Arabic (RTL) support and atomic cursor skipping.",
+  "description": "Extend markdown capabilities by adding inline fold, encapsulate text anywhere in the note, can create flashcards to do active recall, spoilers ",
   "author": "Mohamed Saleh",
   "authorUrl": "https://github.com/MohamedSaleh0-0",
   "isDesktopOnly": false
