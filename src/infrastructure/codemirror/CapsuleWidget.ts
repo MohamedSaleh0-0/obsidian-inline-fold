@@ -1,6 +1,6 @@
 import { WidgetType, EditorView } from "@codemirror/view";
 import { CapsuleSettings, FoldClass } from "../../domain/models/Settings";
-import { toggleSingleCapsuleEffect, setHoveredPositionEffect } from "./Extension";
+import { toggleSingleCapsuleEffect, setHoveredPosition } from "./Extension";
 
 export class CapsuleWidget extends WidgetType {
     private leaveTimeout: any = null;
@@ -10,7 +10,8 @@ export class CapsuleWidget extends WidgetType {
         private readonly globalSettings: CapsuleSettings,
         private readonly foldClass: FoldClass,
         private readonly isExpanded: boolean,
-        private readonly absoluteFrom: number
+        private readonly absoluteFrom: number,
+        private readonly customAlias?: string
     ) {
         super();
     }
@@ -19,6 +20,7 @@ export class CapsuleWidget extends WidgetType {
         return other.content === this.content && 
                other.isExpanded === this.isExpanded && 
                other.absoluteFrom === this.absoluteFrom &&
+               other.customAlias === this.customAlias &&
                JSON.stringify(other.foldClass) === JSON.stringify(this.foldClass) &&
                other.globalSettings.interactionMode === this.globalSettings.interactionMode &&
                other.globalSettings.linkCursorToExpansion === this.globalSettings.linkCursorToExpansion &&
@@ -30,10 +32,13 @@ export class CapsuleWidget extends WidgetType {
         const wrapper = document.createElement("span");
         wrapper.className = `inline-capsule-wrapper theme-${this.foldClass.styleType}`;
         wrapper.style.cursor = "pointer";
+        wrapper.style.display = "inline-block"; // تضمن الحفاظ على أبعاد البوكس موديل أثناء التبديل
 
         const trigger = document.createElement("span");
         trigger.className = "inline-capsule-trigger";
-        trigger.innerText = this.foldClass.triggerText;
+        
+        const finalTriggerText = this.customAlias !== undefined ? this.customAlias : this.foldClass.triggerText;
+        trigger.innerText = finalTriggerText;
         trigger.style.cursor = "pointer";
 
         const contentSpan = document.createElement("span");
@@ -41,7 +46,6 @@ export class CapsuleWidget extends WidgetType {
         contentSpan.innerText = this.content;
         contentSpan.style.cursor = "pointer";
 
-        // فرض التحكم الهيكلي للعرض والإخفاء
         if (this.isExpanded) {
             wrapper.classList.add("is-expanded");
             contentSpan.style.display = "inline";
@@ -51,57 +55,60 @@ export class CapsuleWidget extends WidgetType {
             trigger.style.display = "inline-block";
         }
 
-        // حقن التنسيقات الرسومية الخاصة بكل ثيم برمجياً لقطع الشك بالـ CSS
         const type = this.foldClass.styleType;
         if (type === "ghost") {
-            trigger.style.color = "var(--text-muted)";
-            trigger.style.fontWeight = "600";
-            trigger.style.opacity = "0.8";
-
-            contentSpan.style.color = "var(--text-normal)";
-            contentSpan.style.backgroundColor = "var(--background-modifier-form-field)";
-            contentSpan.style.padding = "2px 6px";
-            contentSpan.style.borderRadius = "4px";
+            if (this.isExpanded) {
+                wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+                wrapper.style.padding = "2px 6px";
+                wrapper.style.borderRadius = "4px";
+                contentSpan.style.color = "var(--text-normal)";
+            } else {
+                wrapper.style.backgroundColor = "transparent";
+                wrapper.style.padding = "0px";
+                trigger.style.color = "var(--text-muted)";
+                trigger.style.fontWeight = "600";
+                trigger.style.opacity = "0.8";
+            }
         } else if (type === "pill") {
-            trigger.style.backgroundColor = "var(--background-modifier-border)";
+            wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+            wrapper.style.border = "1px solid var(--background-modifier-border)";
+            wrapper.style.borderRadius = "12px";
+            wrapper.style.padding = "2px 8px";
+            
             trigger.style.color = "var(--text-normal)";
-            trigger.style.padding = "1px 6px";
-            trigger.style.borderRadius = "12px";
-            trigger.style.fontSize = "0.85em";
-            trigger.style.border = "1px solid var(--background-modifier-border-hover)";
-
-            contentSpan.style.backgroundColor = "var(--background-primary-alt)";
+            trigger.style.fontSize = "0.9em";
             contentSpan.style.color = "var(--text-accent)";
-            contentSpan.style.padding = "2px 6px";
-            contentSpan.style.borderRadius = "4px";
-            contentSpan.style.border = "1px solid var(--background-modifier-border)";
         } else if (type === "bracket") {
+            wrapper.style.backgroundColor = "transparent";
+            wrapper.style.padding = "0px";
+            wrapper.style.border = "none";
+            
             trigger.style.color = "var(--text-warning)";
             trigger.style.fontFamily = "var(--font-monospace)";
-            trigger.innerText = `[${this.foldClass.triggerText}]`;
-
+            trigger.innerText = `[${finalTriggerText}]`;
+            
             contentSpan.style.fontFamily = "var(--font-monospace)";
             contentSpan.style.color = "var(--text-success)";
         } else if (type === "custom") {
-            const targetEl = this.isExpanded ? contentSpan : trigger;
-            targetEl.style.color = this.foldClass.customTextColor;
-            targetEl.style.backgroundColor = this.foldClass.customBgColor;
-            targetEl.style.borderColor = this.foldClass.customBorderColor;
-            targetEl.style.borderStyle = this.foldClass.customBorderStyle;
-            targetEl.style.borderWidth = this.foldClass.customBorderWidth;
-            targetEl.style.borderRadius = this.foldClass.customBorderRadius;
-            targetEl.style.padding = this.foldClass.customPadding;
-            targetEl.style.fontSize = this.foldClass.customFontSize;
+            // حل المشكلة بصورة جذرية: حقن خصائص لوحة التحكم المخصصة مباشرة على الحاوية الخارجية الكبرى
+            wrapper.style.color = this.foldClass.customTextColor;
+            wrapper.style.backgroundColor = this.foldClass.customBgColor;
+            wrapper.style.borderColor = this.foldClass.customBorderColor;
+            wrapper.style.borderStyle = this.foldClass.customBorderStyle;
+            wrapper.style.borderWidth = this.foldClass.customBorderWidth;
+            wrapper.style.borderRadius = this.foldClass.customBorderRadius;
+            wrapper.style.padding = this.foldClass.customPadding;
+            wrapper.style.fontSize = this.foldClass.customFontSize;
         }
 
         wrapper.appendChild(trigger);
         wrapper.appendChild(contentSpan);
 
-        this.bindEvents(wrapper, trigger, view);
+        this.bindEvents(wrapper, trigger, contentSpan, view);
         return wrapper;
     }
 
-    private bindEvents(wrapper: HTMLElement, trigger: HTMLElement, view: EditorView): void {
+    private bindEvents(wrapper: HTMLElement, trigger: HTMLElement, contentSpan: HTMLElement, view: EditorView): void {
         const mode = this.globalSettings.interactionMode;
         const type = this.foldClass.styleType;
 
@@ -124,21 +131,18 @@ export class CapsuleWidget extends WidgetType {
                 }
 
                 wrapper.classList.add("is-hover-revealed");
-                
-                if (type === "ghost") {
-                    trigger.style.color = "var(--text-normal)";
-                    trigger.style.opacity = "1";
-                }
+                setHoveredPosition(this.absoluteFrom);
 
-                view.dispatch({
-                    effects: setHoveredPositionEffect.of(this.absoluteFrom)
-                });
-
-                const contentSpan = wrapper.querySelector(".inline-capsule-content") as HTMLElement;
-                const triggerSpan = wrapper.querySelector(".inline-capsule-trigger") as HTMLElement;
-                if (contentSpan && triggerSpan && !this.isExpanded) {
+                if (!this.isExpanded) {
                     contentSpan.style.display = "inline";
-                    triggerSpan.style.display = "none";
+                    trigger.style.display = "none";
+
+                    if (type === "ghost") {
+                        wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+                        wrapper.style.padding = "2px 6px";
+                        wrapper.style.borderRadius = "4px";
+                        contentSpan.style.color = "var(--text-normal)";
+                    }
                 }
             });
 
@@ -147,21 +151,18 @@ export class CapsuleWidget extends WidgetType {
 
                 const executeLeave = () => {
                     wrapper.classList.remove("is-hover-revealed");
+                    setHoveredPosition(null);
 
-                    if (type === "ghost") {
-                        trigger.style.color = "var(--text-muted)";
-                        trigger.style.opacity = "0.8";
-                    }
-
-                    view.dispatch({
-                        effects: setHoveredPositionEffect.of(null)
-                    });
-
-                    const contentSpan = wrapper.querySelector(".inline-capsule-content") as HTMLElement;
-                    const triggerSpan = wrapper.querySelector(".inline-capsule-trigger") as HTMLElement;
-                    if (contentSpan && triggerSpan && !this.isExpanded) {
+                    if (!this.isExpanded) {
                         contentSpan.style.display = "none";
-                        triggerSpan.style.display = "inline-block";
+                        trigger.style.display = "inline-block";
+
+                        if (type === "ghost") {
+                            wrapper.style.backgroundColor = "transparent";
+                            wrapper.style.padding = "0px";
+                            trigger.style.color = "var(--text-muted)";
+                            trigger.style.opacity = "0.8";
+                        }
                     }
                 };
 

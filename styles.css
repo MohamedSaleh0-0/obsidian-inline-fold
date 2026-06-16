@@ -14,8 +14,9 @@
     direction: inherit;
 }
 
+/* تحصين الحجب لمنع ظهور النص والمؤشر معاً في الـ Live Preview */
 .inline-capsule-wrapper .inline-capsule-content {
-    display: none;
+    display: none !important;
     unicode-bidi: isolate;
     direction: inherit;
 }

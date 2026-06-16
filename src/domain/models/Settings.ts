@@ -32,20 +32,20 @@ export const DEFAULT_SETTINGS: CapsuleSettings = {
     hoverCollapseDelay: 200,
     classes: [
         {
-            id: "default-fold",
-            name: "Default Fold",
+            id: "default-flashcard",
+            name: "Flashcard Answer",
             startSymbol: "[=",
             endSymbol: "=]",
-            styleType: "ghost",
-            triggerText: "..",
-            customTextColor: "var(--text-normal)",
-            customBgColor: "var(--background-modifier-form-field)",
-            customBorderColor: "var(--background-modifier-border)",
+            styleType: "pill",
+            triggerText: "?",
+            customTextColor: "var(--text-accent)",
+            customBgColor: "var(--background-primary-alt)",
+            customBorderColor: "var(--interactive-accent)",
             customBorderStyle: "solid",
             customBorderWidth: "1px",
-            customBorderRadius: "4px",
-            customPadding: "2px 6px",
-            customFontSize: "inherit"
+            customBorderRadius: "6px",
+            customPadding: "2px 8px",
+            customFontSize: "0.95em"
         }
     ]
 };

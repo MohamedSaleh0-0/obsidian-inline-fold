@@ -3,5 +3,6 @@ export interface CapsuleNode {
     to: number;
     content: string;
     classId: string;
+    alias?: string; 
     children: CapsuleNode[];
 }

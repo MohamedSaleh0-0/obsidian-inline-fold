@@ -46,17 +46,23 @@ export function createMarkdownPostProcessor(
 
                     const wrapper = document.createElement("span");
                     wrapper.className = `inline-capsule-wrapper theme-${foldClass.styleType}`;
+                    wrapper.style.cursor = "pointer";
+                    wrapper.style.display = "inline-block";
                     
                     const isExpanded = expandedCache.has(node.content);
                     if (isExpanded) wrapper.classList.add("is-expanded");
 
                     const trigger = document.createElement("span");
                     trigger.className = "inline-capsule-trigger";
-                    trigger.innerText = foldClass.triggerText;
+                    
+                    const finalTriggerText = node.alias !== undefined ? node.alias : foldClass.triggerText;
+                    trigger.innerText = finalTriggerText;
+                    trigger.style.cursor = "pointer";
 
                     const contentSpan = document.createElement("span");
                     contentSpan.className = "inline-capsule-content";
                     contentSpan.innerText = node.content;
+                    contentSpan.style.cursor = "pointer";
 
                     if (isExpanded) {
                         contentSpan.style.display = "inline";
@@ -66,10 +72,51 @@ export function createMarkdownPostProcessor(
                         trigger.style.display = "inline-block";
                     }
 
+                    const type = foldClass.styleType;
+                    if (type === "ghost") {
+                        if (isExpanded) {
+                            wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+                            wrapper.style.padding = "2px 6px";
+                            wrapper.style.borderRadius = "4px";
+                            contentSpan.style.color = "var(--text-normal)";
+                        } else {
+                            wrapper.style.backgroundColor = "transparent";
+                            wrapper.style.padding = "0px";
+                            trigger.style.color = "var(--text-muted)";
+                            trigger.style.fontWeight = "600";
+                            trigger.style.opacity = "0.8";
+                        }
+                    } else if (type === "pill") {
+                        wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+                        wrapper.style.border = "1px solid var(--background-modifier-border)";
+                        wrapper.style.borderRadius = "12px";
+                        wrapper.style.padding = "2px 8px";
+                        trigger.style.color = "var(--text-normal)";
+                        trigger.style.fontSize = "0.9em";
+                        contentSpan.style.color = "var(--text-accent)";
+                    } else if (type === "bracket") {
+                        wrapper.style.backgroundColor = "transparent";
+                        wrapper.style.padding = "0px";
+                        wrapper.style.border = "none";
+                        trigger.style.color = "var(--text-warning)";
+                        trigger.style.fontFamily = "var(--font-monospace)";
+                        trigger.innerText = `[${finalTriggerText}]`;
+                        contentSpan.style.fontFamily = "var(--font-monospace)";
+                        contentSpan.style.color = "var(--text-success)";
+                    } else if (type === "custom") {
+                        wrapper.style.color = foldClass.customTextColor;
+                        wrapper.style.backgroundColor = foldClass.customBgColor;
+                        wrapper.style.borderColor = foldClass.customBorderColor;
+                        wrapper.style.borderStyle = foldClass.customBorderStyle;
+                        wrapper.style.borderWidth = foldClass.customBorderWidth;
+                        wrapper.style.borderRadius = foldClass.customBorderRadius;
+                        wrapper.style.padding = foldClass.customPadding;
+                        wrapper.style.fontSize = foldClass.customFontSize;
+                    }
+
                     wrapper.appendChild(trigger);
                     wrapper.appendChild(contentSpan);
 
-                    // تفعيل محرك الأحداث التفاعلية لوضع القراءة المعتمد على المصفوفات
                     bindPostProcessorEvents(wrapper, node.content, settings, foldClass, expandedCache);
 
                     parentEl.appendChild(wrapper);
@@ -94,6 +141,7 @@ function bindPostProcessorEvents(
     expandedCache: Set<string>
 ) {
     const mode = settings.interactionMode;
+    const type = foldClass.styleType;
 
     if (mode === "click" || mode === "both") {
         wrapper.addEventListener("click", (e) => {
@@ -107,6 +155,10 @@ function bindPostProcessorEvents(
                 if (contentSpan && triggerSpan) {
                     contentSpan.style.display = "none";
                     triggerSpan.style.display = "inline-block";
+                    if (type === "ghost") {
+                        wrapper.style.backgroundColor = "transparent";
+                        wrapper.style.padding = "0px";
+                    }
                 }
             } else {
                 expandedCache.add(content);
@@ -114,6 +166,11 @@ function bindPostProcessorEvents(
                 if (contentSpan && triggerSpan) {
                     contentSpan.style.display = "inline";
                     triggerSpan.style.display = "none";
+                    if (type === "ghost") {
+                        wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+                        wrapper.style.padding = "2px 6px";
+                        wrapper.style.borderRadius = "4px";
+                    }
                 }
             }
         });
@@ -127,6 +184,11 @@ function bindPostProcessorEvents(
             if (contentSpan && triggerSpan && !wrapper.classList.contains("is-expanded")) {
                 contentSpan.style.display = "inline";
                 triggerSpan.style.display = "none";
+                if (type === "ghost") {
+                    wrapper.style.backgroundColor = "var(--background-modifier-form-field)";
+                    wrapper.style.padding = "2px 6px";
+                    wrapper.style.borderRadius = "4px";
+                }
             }
         });
         wrapper.addEventListener("mouseleave", () => {
@@ -136,6 +198,10 @@ function bindPostProcessorEvents(
             if (contentSpan && triggerSpan && !wrapper.classList.contains("is-expanded")) {
                 contentSpan.style.display = "none";
                 triggerSpan.style.display = "inline-block";
+                if (type === "ghost") {
+                    wrapper.style.backgroundColor = "transparent";
+                    wrapper.style.padding = "0px";
+                }
             }
         });
     }

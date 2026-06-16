@@ -25,13 +25,24 @@ export class CapsuleParser {
                     const nodeTo = lineFrom + i + endSym.length;
                     
                     const contentFrom = openTag.index + openTag.foldClass.startSymbol.length;
-                    const contentText = text.substring(contentFrom, i);
+                    const fullRawContent = text.substring(contentFrom, i);
+
+                    // ميكانيزم فحص وفصل الاسم المستعار (Alias Processing)
+                    let finalContent = fullRawContent;
+                    let aliasText: string | undefined = undefined;
+
+                    const pipeIndex = fullRawContent.indexOf("|");
+                    if (pipeIndex !== -1) {
+                        finalContent = fullRawContent.substring(0, pipeIndex);
+                        aliasText = fullRawContent.substring(pipeIndex + 1);
+                    }
 
                     const node: CapsuleNode = {
                         from: nodeFrom,
                         to: nodeTo,
-                        content: contentText,
+                        content: finalContent,
                         classId: openTag.foldClass.id,
+                        alias: aliasText,
                         children: []
                     };
 

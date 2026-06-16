@@ -111,11 +111,38 @@ export default class InlineCapsulePlugin extends Plugin {
                             editor.replaceSelection(`${startSym}${selectedText}${endSym}`);
                         }
                     } else {
-                        editor.replaceSelection(`${startSym}${endSym}`);
-                        editor.setCursor({
-                            line: cursor.line,
-                            ch: cursor.ch + startSym.length
-                        });
+                        const wordRegex = /[\p{L}\p{N}_-]/u;
+                        let ch = cursor.ch;
+                        
+                        let start = ch;
+                        while (start > 0 && wordRegex.test(currentLineText[start - 1])) {
+                            start--;
+                        }
+                        
+                        let end = ch;
+                        while (end < currentLineText.length && wordRegex.test(currentLineText[end])) {
+                            end++;
+                        }
+
+                        if (start < end && ch < end) {
+                            const word = currentLineText.substring(start, end);
+                            editor.replaceRange(
+                                `${startSym}${word}${endSym}`,
+                                { line: cursor.line, ch: start },
+                                { line: cursor.line, ch: end }
+                            );
+                            editor.setCursor({ line: cursor.line, ch: start + startSym.length + word.length + endSym.length });
+                        } else {
+                            editor.replaceRange(
+                                `${startSym}${endSym}`,
+                                { line: cursor.line, ch: ch }
+                            );
+                            
+                            editor.setCursor({
+                                line: cursor.line,
+                                ch: ch + startSym.length
+                            });
+                        }
                     }
                 }
             });

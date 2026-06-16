@@ -9,10 +9,13 @@ import { CapsuleNode } from "../../domain/models/CapsuleNode";
 
 export const updateCapsuleSettingsEffect = StateEffect.define<CapsuleSettings>();
 export const toggleSingleCapsuleEffect = StateEffect.define<number>();
-export const setHoveredPositionEffect = StateEffect.define<number | null>();
 
 let openAbsolutePositions = new Set<number>();
-let hoveredAbsolutePosition: number | null = null;
+export let hoveredAbsolutePosition: number | null = null;
+
+export function setHoveredPosition(pos: number | null) {
+    hoveredAbsolutePosition = pos;
+}
 
 export function createCapsuleExtension(
     initialSettings: CapsuleSettings,
@@ -22,15 +25,108 @@ export function createCapsuleExtension(
     let currentSettings = initialSettings;
     let parser = new CapsuleParser(currentSettings.classes);
 
-    const capsuleField = StateField.define<DecorationSet>({
+    function harvestNodes(state: EditorState): CapsuleNode[] {
+        const nodes: CapsuleNode[] = [];
+        for (let i = 1; i <= state.doc.lines; i++) {
+            const line = state.doc.line(i);
+            let hasAnyStart = false;
+            for (const c of currentSettings.classes) {
+                if (line.text.includes(c.startSymbol)) {
+                    hasAnyStart = true;
+                    break;
+                }
+            }
+            if (!hasAnyStart) continue;
+            try {
+                const lineNodes = parser.parseLine(line.text, line.from);
+                nodes.push(...lineNodes);
+            } catch (e) {}
+        }
+        return nodes;
+    }
+
+    function buildDecorationsFromCache(
+        state: EditorState,
+        nodes: CapsuleNode[],
+        openPositions: Set<number>
+    ): DecorationSet {
+        const builder = new RangeSetBuilder<Decoration>();
+        const selectionRanges = state.selection.ranges;
+
+        for (const node of nodes) {
+            const foldClass = currentSettings.classes.find(c => c.id === node.classId);
+            if (!foldClass) continue;
+
+            const isExpanded = openPositions.has(node.from);
+            const isHovered = hoveredAbsolutePosition === node.from;
+
+            let skipDecoration = false;
+
+            for (let range of selectionRanges) {
+                if (range.head > node.from && range.head < node.to) {
+                    skipDecoration = true;
+                    break;
+                }
+                
+                if (range.head === node.from || range.head === node.to) {
+                    if (!currentSettings.protectCollapsedBoundaries || isExpanded || isHovered) {
+                        skipDecoration = true;
+                        break;
+                    }
+                }
+            }
+
+            if (currentSettings.linkCursorToExpansion === "alwaysReveal") {
+                for (let range of selectionRanges) {
+                    if (range.from <= node.to && range.to >= node.from) {
+                        skipDecoration = true;
+                        break;
+                    }
+                }
+            }
+
+            if (skipDecoration) continue;
+
+            builder.add(
+                node.from,
+                node.to,
+                Decoration.replace({
+                    widget: new CapsuleWidget(
+                        node.content,
+                        currentSettings,
+                        foldClass,
+                        isExpanded,
+                        node.from,
+                        node.alias
+                    )
+                })
+            );
+        }
+
+        return builder.finish();
+    }
+
+    const capsuleField = StateField.define<{ decorations: DecorationSet; nodes: CapsuleNode[] }>({
         create(state) {
-            if (!state.field(editorLivePreviewField, false)) return Decoration.none;
-            return buildDecorations(state, currentSettings, parser, openAbsolutePositions);
+            if (!state.field(editorLivePreviewField, false)) {
+                return { decorations: Decoration.none, nodes: [] };
+            }
+            const nodes = harvestNodes(state);
+            const decorations = buildDecorationsFromCache(state, nodes, openAbsolutePositions);
+            return { decorations, nodes };
         },
-        update(decorations, tr) {
-            if (!tr.state.field(editorLivePreviewField, false)) return Decoration.none;
+        update(value, tr) {
+            if (!tr.state.field(editorLivePreviewField, false)) {
+                return { decorations: Decoration.none, nodes: [] };
+            }
+
+            let nodes = value.nodes;
+            let forceRebuild = false;
 
             if (tr.docChanged) {
+                nodes = harvestNodes(tr.state);
+                forceRebuild = true;
+
                 const shiftedPositions = new Set<number>();
                 openAbsolutePositions.forEach(pos => {
                     shiftedPositions.add(tr.changes.mapPos(pos));
@@ -43,10 +139,6 @@ export function createCapsuleExtension(
             }
 
             for (let effect of tr.effects) {
-                if (effect.is(setHoveredPositionEffect)) {
-                    hoveredAbsolutePosition = effect.value;
-                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
-                }
                 if (effect.is(toggleSingleCapsuleEffect)) {
                     const targetPos = effect.value;
                     if (openAbsolutePositions.has(targetPos)) {
@@ -54,23 +146,26 @@ export function createCapsuleExtension(
                     } else {
                         openAbsolutePositions.add(targetPos);
                     }
-                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
+                    forceRebuild = true;
                 }
                 if (effect.is(updateCapsuleSettingsEffect)) {
                     currentSettings = effect.value;
                     parser = new CapsuleParser(currentSettings.classes);
                     openAbsolutePositions.clear();
                     hoveredAbsolutePosition = null;
-                    return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
+                    nodes = harvestNodes(tr.state);
+                    forceRebuild = true;
                 }
             }
 
-            if (tr.docChanged || !tr.startState.selection.eq(tr.state.selection)) {
-                return buildDecorations(tr.state, currentSettings, parser, openAbsolutePositions);
+            if (forceRebuild || !tr.startState.selection.eq(tr.state.selection)) {
+                const decorations = buildDecorationsFromCache(tr.state, nodes, openAbsolutePositions);
+                return { decorations, nodes };
             }
-            return decorations.map(tr.changes);
+
+            return { decorations: value.decorations.map(tr.changes), nodes };
         },
-        provide: field => EditorView.decorations.from(field)
+        provide: field => EditorView.decorations.from(field, value => value.decorations)
     });
 
     const selectionFilter = EditorState.transactionFilter.of((tr) => {
@@ -87,6 +182,7 @@ export function createCapsuleExtension(
                 for (const node of nodes) {
                     if (openAbsolutePositions.has(node.from) || 
                         hoveredAbsolutePosition === node.from ||
+                        node.content === "" || // تجاوز فلتر الحجب فوراً إذا كانت الكبسولة فارغة تماماً أثناء توليدها
                         (startHead > node.from && startHead < node.to)) {
                         continue;
                     }
@@ -115,82 +211,4 @@ export function createCapsuleExtension(
     });
 
     return [Prec.highest(capsuleField), selectionFilter];
-}
-
-function buildDecorations(
-    state: any,
-    settings: CapsuleSettings,
-    parser: CapsuleParser,
-    openPositions: Set<number>
-): DecorationSet {
-    const builder = new RangeSetBuilder<Decoration>();
-    const selectionRanges = state.selection.ranges;
-
-    for (let i = 1; i <= state.doc.lines; i++) {
-        const line = state.doc.line(i);
-        
-        let hasAnyStart = false;
-        for (const c of settings.classes) {
-            if (line.text.includes(c.startSymbol)) {
-                hasAnyStart = true;
-                break;
-            }
-        }
-        if (!hasAnyStart) continue;
-
-        const rootNodes = parser.parseLine(line.text, line.from);
-
-        const processNode = (node: CapsuleNode) => {
-            const foldClass = settings.classes.find(c => c.id === node.classId);
-            if (!foldClass) return;
-
-            const isExpanded = openPositions.has(node.from);
-            const isHovered = hoveredAbsolutePosition === node.from;
-
-            if (settings.linkCursorToExpansion === "alwaysReveal") {
-                let isCursorInside = false;
-                for (let range of selectionRanges) {
-                    if (range.from <= node.to && range.to >= node.from) {
-                        isCursorInside = true;
-                        break;
-                    }
-                }
-                if (isCursorInside) return;
-            }
-
-            let checkProximity = true;
-            if (settings.protectCollapsedBoundaries) {
-                checkProximity = isExpanded || isHovered;
-            }
-
-            if (checkProximity) {
-                let isCursorInside = false;
-                for (let range of selectionRanges) {
-                    if (range.head >= node.from && range.head <= node.to) {
-                        isCursorInside = true;
-                        break;
-                    }
-                }
-                if (isCursorInside) return;
-            }
-
-            builder.add(
-                node.from,
-                node.to,
-                Decoration.replace({
-                    widget: new CapsuleWidget(
-                        node.content,
-                        settings,
-                        foldClass,
-                        isExpanded,
-                        node.from
-                    )
-                })
-            );
-        };
-
-        rootNodes.forEach(processNode);
-    }
-
-    return builder.finish();
 }
