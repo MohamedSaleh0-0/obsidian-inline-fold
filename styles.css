@@ -1,98 +1,99 @@
-/* فرض مظهر اليد الحرة الاحترافي على كافة مكونات الواجهة الرسومية للإضافة */
-.inline-capsule-wrapper,
-.inline-capsule-trigger,
-.inline-capsule-content {
-    cursor: pointer !important;
-    text-decoration: none !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
+/* فرض مظهر اليد الحرة الاحترافي بزيادة التخصيص الهيكلي */
+.markdown-rendered .inline-capsule-wrapper,
+.markdown-rendered .inline-capsule-trigger,
+.markdown-rendered .inline-capsule-content {
+    cursor: pointer;
+    text-decoration: none;
+    border-bottom: none;
+    box-shadow: none;
 }
 
-.inline-capsule-wrapper {
+.markdown-rendered .inline-capsule-wrapper {
     display: inline;
     unicode-bidi: isolate;
     direction: inherit;
 }
 
 /* تحصين الحجب لمنع ظهور النص والمؤشر معاً في الـ Live Preview */
-.inline-capsule-wrapper .inline-capsule-content {
-    display: none !important;
+.markdown-rendered .inline-capsule-wrapper .inline-capsule-content {
+    display: none;
     unicode-bidi: isolate;
     direction: inherit;
 }
 
-.inline-capsule-wrapper.is-expanded .inline-capsule-content,
-.inline-capsule-wrapper.is-hover-revealed .inline-capsule-content {
-    display: inline !important;
+.markdown-rendered .inline-capsule-wrapper.is-expanded .inline-capsule-content,
+.markdown-rendered .inline-capsule-wrapper.is-hover-revealed .inline-capsule-content {
+    display: inline;
 }
 
-.inline-capsule-wrapper.is-expanded .inline-capsule-trigger,
-.inline-capsule-wrapper.is-hover-revealed .inline-capsule-trigger {
-    display: none !important;
+.markdown-rendered .inline-capsule-wrapper.is-expanded .inline-capsule-trigger,
+.markdown-rendered .inline-capsule-wrapper.is-hover-revealed .inline-capsule-trigger {
+    display: none;
 }
 
-.inline-capsule-trigger, .inline-capsule-content {
+.markdown-rendered .inline-capsule-trigger, 
+.markdown-rendered .inline-capsule-content {
     display: inline-block;
     unicode-bidi: isolate;
 }
 
-/* التطهير الكلي لثيم الـ Ghost لمنع محاكاة الروابط البنفسجية المزعجة */
-.inline-capsule-wrapper.theme-ghost .inline-capsule-trigger {
-    color: var(--text-muted) !important;
-    font-weight: 600 !important;
+/* تطهير ثيم الـ Ghost لمنع محاكاة الروابط البنفسجية المزعجة */
+.markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-trigger {
+    color: var(--text-muted);
+    font-weight: 600;
     opacity: 0.8;
-    text-decoration: none !important;
-    border-bottom: none !important;
+    text-decoration: none;
+    border-bottom: none;
 }
 
-.inline-capsule-wrapper.theme-ghost .inline-capsule-trigger:hover {
-    color: var(--text-normal) !important;
+.markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-trigger:hover {
+    color: var(--text-normal);
     opacity: 1;
 }
 
-.inline-capsule-wrapper.theme-ghost .inline-capsule-content {
-    color: var(--text-normal) !important;
-    background-color: var(--background-modifier-form-field) !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
-    font-style: normal !important;
-    text-decoration: none !important;
-    border-bottom: none !important;
+.markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-content {
+    color: var(--text-normal);
+    background-color: var(--background-modifier-form-field);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-style: normal;
+    text-decoration: none;
+    border-bottom: none;
 }
 
 /* Smart Pill Layouts */
-.inline-capsule-wrapper.theme-pill .inline-capsule-trigger {
-    background-color: var(--background-modifier-border) !important;
-    color: var(--text-normal) !important;
-    padding: 1px 6px !important;
-    border-radius: 12px !important;
-    font-size: 0.85em !important;
-    border: 1px solid var(--background-modifier-border-hover) !important;
+.markdown-rendered .inline-capsule-wrapper.theme-pill .inline-capsule-trigger {
+    background-color: var(--background-modifier-border);
+    color: var(--text-normal);
+    padding: 1px 6px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    border: 1px solid var(--background-modifier-border-hover);
 }
 
-.inline-capsule-wrapper.theme-pill .inline-capsule-content {
-    background-color: var(--background-primary-alt) !important;
-    color: var(--text-accent) !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
-    border: 1px solid var(--background-modifier-border) !important;
+.markdown-rendered .inline-capsule-wrapper.theme-pill .inline-capsule-content {
+    background-color: var(--background-primary-alt);
+    color: var(--text-accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
 }
 
 /* Bracket Block Layouts */
-.inline-capsule-wrapper.theme-bracket .inline-capsule-trigger {
-    color: var(--text-warning) !important;
-    font-family: var(--font-monospace) !important;
+.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger {
+    color: var(--text-warning);
+    font-family: var(--font-monospace);
 }
 
-.inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::before {
+.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::before {
     content: "[";
 }
 
-.inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::after {
+.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::after {
     content: "]";
 }
 
-.inline-capsule-wrapper.theme-bracket .inline-capsule-content {
-    font-family: var(--font-monospace) !important;
-    color: var(--text-success) !important;
+.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-content {
+    font-family: var(--font-monospace);
+    color: var(--text-success);
 }
