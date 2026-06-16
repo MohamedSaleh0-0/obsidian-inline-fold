@@ -1,4 +1,3 @@
-/* فرض مظهر اليد الحرة الاحترافي بزيادة التخصيص الهيكلي */
 .markdown-rendered .inline-capsule-wrapper,
 .markdown-rendered .inline-capsule-trigger,
 .markdown-rendered .inline-capsule-content {
@@ -14,7 +13,6 @@
     direction: inherit;
 }
 
-/* تحصين الحجب لمنع ظهور النص والمؤشر معاً في الـ Live Preview */
 .markdown-rendered .inline-capsule-wrapper .inline-capsule-content {
     display: none;
     unicode-bidi: isolate;
@@ -37,7 +35,6 @@
     unicode-bidi: isolate;
 }
 
-/* تطهير ثيم الـ Ghost لمنع محاكاة الروابط البنفسجية المزعجة */
 .markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-trigger {
     color: var(--text-muted);
     font-weight: 600;
