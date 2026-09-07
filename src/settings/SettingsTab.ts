@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
 import type InlineFoldPlugin from "../main";
 import { PluginDataStore } from "../data/PluginDataStore";
 import { createBlankFoldClass } from "./defaults";
@@ -15,32 +15,11 @@ export class SettingsTab extends PluginSettingTab {
     super(app, plugin);
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-    containerEl.createEl("h2", { text: "Inline Fold" });
-
-    this.renderGlobalSettings(containerEl);
-
-    containerEl.createEl("hr");
-    const header = containerEl.createDiv({ cls: "inline-fold-classes-header" });
-    header.createEl("h3", { text: "Fold classes" });
-    new Setting(header).addButton((btn) =>
-      btn
-        .setButtonText("+ Add class")
-        .setCta()
-        .onClick(async () => {
-          const settings = this.dataStore.getSettings();
-          settings.classes.push(createBlankFoldClass(settings.classes.length + 1));
-          await this.persist(settings);
-          this.redisplayPreservingScroll();
-        }),
-    );
-
-    const settings = this.dataStore.getSettings();
-    const collisions = findDelimiterCollisions(settings.classes);
-    const regexIssues = findInvalidRegexClasses(settings.classes);
-    settings.classes.forEach((cls, index) => this.renderClassCard(containerEl, cls, index, collisions, regexIssues));
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      { name: "Inline Fold", render: (setting) => this.renderGlobalSettings(setting.controlEl) },
+      { name: "Fold classes", render: (setting) => this.renderFoldClasses(setting.controlEl) },
+    ];
   }
 
   /**
@@ -52,10 +31,31 @@ export class SettingsTab extends PluginSettingTab {
    * for a moment; without restoring scrollTop afterward, that snaps the
    * whole settings tab back to the top on every one of these changes.
    */
-  private redisplayPreservingScroll(): void {
+  private refreshPreservingScroll(): void {
     const scrollTop = this.containerEl.scrollTop;
-    this.display();
-    this.containerEl.scrollTop = scrollTop;
+    this.update();
+    window.requestAnimationFrame(() => {
+      this.containerEl.scrollTop = scrollTop;
+    });
+  }
+
+  private renderFoldClasses(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Fold classes")
+      .setHeading()
+      .addButton((btn) =>
+        btn.setButtonText("+ Add class").setCta().onClick(async () => {
+          const settings = this.dataStore.getSettings();
+          settings.classes.push(createBlankFoldClass(settings.classes.length + 1));
+          await this.persist(settings);
+          this.refreshPreservingScroll();
+        }),
+      );
+
+    const settings = this.dataStore.getSettings();
+    const collisions = findDelimiterCollisions(settings.classes);
+    const regexIssues = findInvalidRegexClasses(settings.classes);
+    settings.classes.forEach((cls, index) => this.renderClassCard(containerEl, cls, index, collisions, regexIssues));
   }
 
   private renderGlobalSettings(containerEl: HTMLElement): void {
@@ -121,7 +121,6 @@ export class SettingsTab extends PluginSettingTab {
         slider
           .setLimits(0, 1000, 50)
           .setValue(settings.hoverCollapseDelay)
-          .setDynamicTooltip()
           .onChange(async (value) => {
             settings.hoverCollapseDelay = value;
             await this.persist(settings);
@@ -163,8 +162,7 @@ export class SettingsTab extends PluginSettingTab {
     const card = containerEl.createDiv({ cls: "inline-fold-class-card" });
 
     const header = card.createDiv({ cls: "inline-fold-class-card-header" });
-    header.createEl("h4", { text: cls.name });
-    const headerButtons = new Setting(header);
+    const headerButtons = new Setting(header).setName(cls.name).setHeading();
     if (index > 0) {
       headerButtons.addButton((btn) =>
         btn
@@ -173,7 +171,7 @@ export class SettingsTab extends PluginSettingTab {
           .onClick(async () => {
             [settings.classes[index - 1], settings.classes[index]] = [settings.classes[index], settings.classes[index - 1]];
             await this.persist(settings);
-            this.redisplayPreservingScroll();
+            this.refreshPreservingScroll();
           }),
       );
     }
@@ -185,7 +183,7 @@ export class SettingsTab extends PluginSettingTab {
           .onClick(async () => {
             [settings.classes[index], settings.classes[index + 1]] = [settings.classes[index + 1], settings.classes[index]];
             await this.persist(settings);
-            this.redisplayPreservingScroll();
+            this.refreshPreservingScroll();
           }),
       );
     }
@@ -193,21 +191,18 @@ export class SettingsTab extends PluginSettingTab {
       headerButtons.addButton((btn) =>
         btn
           .setButtonText("Delete")
-          .setWarning()
+          .setDestructive()
           .onClick(async () => {
             settings.classes.splice(index, 1);
             await this.persist(settings);
-            this.redisplayPreservingScroll();
+            this.refreshPreservingScroll();
           }),
       );
     }
 
     const ownCollisions = collisions.filter((c) => c.classId === cls.id);
     if (ownCollisions.length > 0) {
-      const warning = card.createDiv({ cls: "inline-fold-collision-warning" });
-      warning.style.color = "var(--text-warning)";
-      warning.style.fontSize = "0.85em";
-      warning.style.marginBottom = "8px";
+      const warning = card.createDiv({ cls: "inline-fold-validation-message inline-fold-collision-warning" });
       for (const collision of ownCollisions) {
         const reasonText =
           collision.reason === "duplicate"
@@ -221,10 +216,7 @@ export class SettingsTab extends PluginSettingTab {
 
     const ownRegexIssues = regexIssues.filter((issue) => issue.classId === cls.id);
     if (ownRegexIssues.length > 0) {
-      const error = card.createDiv({ cls: "inline-fold-regex-error" });
-      error.style.color = "var(--text-error)";
-      error.style.fontSize = "0.85em";
-      error.style.marginBottom = "8px";
+      const error = card.createDiv({ cls: "inline-fold-validation-message inline-fold-regex-error" });
       for (const issue of ownRegexIssues) {
         error.createDiv({ text: `✗ ${issue.field === "start" ? "Start" : "End"} symbol isn't a valid regex: ${issue.message}` });
       }
@@ -246,7 +238,7 @@ export class SettingsTab extends PluginSettingTab {
         toggle.setValue(cls.useRegex).onChange(async (value) => {
           cls.useRegex = value;
           await this.persist(settings);
-          this.redisplayPreservingScroll();
+          this.refreshPreservingScroll();
         }),
       );
 
@@ -302,7 +294,7 @@ export class SettingsTab extends PluginSettingTab {
         .onChange(async (value) => {
           cls.styleType = value as typeof cls.styleType;
           await this.persist(settings);
-          this.redisplayPreservingScroll();
+          this.refreshPreservingScroll();
         }),
     );
 
@@ -352,7 +344,7 @@ export class SettingsTab extends PluginSettingTab {
         picker.setValue(swatchValue).onChange(async (value) => {
           set(value);
           await this.persist(settings);
-          this.redisplayPreservingScroll();
+          this.refreshPreservingScroll();
         }),
       );
     };

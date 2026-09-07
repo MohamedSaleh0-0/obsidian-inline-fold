@@ -36,6 +36,17 @@
   height: 0.9em;
 }
 
+.inline-fold-validation-message {
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+.inline-fold-collision-warning {
+  color: var(--text-warning);
+}
+.inline-fold-regex-error {
+  color: var(--text-error);
+}
+
 /* Rich content rendered inside a fold's revealed content (bold/italic/
    code/links/wikilinks — see core/inlineMarkdown.ts). Kept minimal and
    inheriting rather than imposing a specific look, since it's rendering

@@ -32,7 +32,7 @@ export class PluginDataStore extends Events {
   }
 
   async load(): Promise<void> {
-    const raw = (await this.plugin.loadData()) as Record<string, unknown> | null;
+    const raw = await this.plugin.loadData();
     this.data = normalizePersistedData(raw);
 
     this.plugin.registerEvent(

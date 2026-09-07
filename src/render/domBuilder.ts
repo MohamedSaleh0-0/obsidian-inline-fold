@@ -70,31 +70,27 @@ function renderInlineMarkdownNode(node: InlineNode, ctx: FoldRenderContext): Nod
     case "text":
       return document.createTextNode(node.value);
     case "bold": {
-      const el = document.createElement("strong");
+      const el = createEl("strong");
       for (const child of node.children) el.appendChild(renderInlineMarkdownNode(child, ctx));
       return el;
     }
     case "italic": {
-      const el = document.createElement("em");
+      const el = createEl("em");
       for (const child of node.children) el.appendChild(renderInlineMarkdownNode(child, ctx));
       return el;
     }
     case "code": {
-      const el = document.createElement("code");
+      const el = createEl("code");
       el.textContent = node.value;
       return el;
     }
     case "link": {
-      const el = document.createElement("a");
-      el.href = node.url;
-      el.target = "_blank";
-      el.rel = "noopener";
+      const el = createEl("a", { attr: { href: node.url, target: "_blank", rel: "noopener" } });
       for (const child of node.label) el.appendChild(renderInlineMarkdownNode(child, ctx));
       return el;
     }
     case "wikilink": {
-      const el = document.createElement("a");
-      el.className = "internal-link";
+      const el = createEl("a", { cls: "internal-link" });
       el.textContent = node.alias ?? node.target;
       if (ctx.app) {
         const app = ctx.app;
@@ -116,20 +112,17 @@ export function renderFoldNode(node: FoldNode, ctx: FoldRenderContext): HTMLElem
   const key = ctx.foldKeys.get(node) ?? `${node.classId}::${node.content}`;
   const expanded = ctx.isExpanded(key);
 
-  const wrapper = document.createElement("span");
-  const trigger = document.createElement("span");
-  trigger.className = "inline-fold-trigger";
+  const wrapper = createEl("span");
+  const trigger = createEl("span", { cls: "inline-fold-trigger" });
   if (foldClass?.icon) {
-    const iconEl = document.createElement("span");
-    iconEl.className = "inline-fold-icon";
+    const iconEl = createEl("span", { cls: "inline-fold-icon" });
     setIcon(iconEl, foldClass.icon);
     trigger.appendChild(iconEl);
   }
   const triggerText = node.alias ?? foldClass?.triggerText ?? "?";
   if (triggerText) trigger.appendChild(document.createTextNode(triggerText));
 
-  const content = document.createElement("span");
-  content.className = "inline-fold-content";
+  const content = createEl("span", { cls: "inline-fold-content" });
 
   if (node.children.length > 0) {
     renderInlineContent(content, node.content, node.contentFrom, node.children, ctx);
