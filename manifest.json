@@ -1,7 +1,7 @@
 {
   "id": "inline-fold",
   "name": "Inline Fold",
-  "version": "1.1.1",
+  "version": "1.2.1",
   "minAppVersion": "1.13.0",
   "description": "encapsulate text and keep the details, good for summarization, studying, flashcards, ",
   "author": "Mohamed Saleh",
