@@ -3,7 +3,7 @@
   "name": "Inline Fold",
   "version": "1.2.1",
   "minAppVersion": "1.13.0",
-  "description": "encapsulate text and keep the details, good for summarization, studying, flashcards, ",
+  "description": "Collapse and reveal inline text with click or hover for flashcards, spoilers, asides, and hidden notes, useful for summarization and studying. ",
   "author": "Mohamed Saleh",
   "isDesktopOnly": false
 }
