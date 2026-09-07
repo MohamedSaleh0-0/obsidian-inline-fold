@@ -1,0 +1,52 @@
+<svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <style>
+    .win { fill: #1e1e1e; }
+    .card-label { fill: #7c7c7c; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  </style>
+  <rect class="win" x="0" y="0" width="700" height="200" rx="10"/>
+
+  <!-- Ghost -->
+  <g transform="translate(24,24)">
+    <text class="card-label" x="0" y="0">Ghost</text>
+    <text x="0" y="34" style="fill:#8a8a8a;font-weight:600;font-size:15px;opacity:0.85">term?</text>
+    <rect x="0" y="70" width="110" height="26" rx="4" style="fill:#2b2b2b"/>
+    <text x="8" y="88" style="fill:#dcddde;font-size:14px;font-style:italic">definition</text>
+  </g>
+
+  <!-- Pill -->
+  <g transform="translate(160,24)">
+    <text class="card-label" x="0" y="0">Pill</text>
+    <rect x="0" y="18" width="30" height="24" rx="12" style="fill:#2b2b2b;stroke:#3a3a3a"/>
+    <text x="15" y="34" text-anchor="middle" style="fill:#dcddde;font-size:13px;font-weight:600">?</text>
+    <rect x="0" y="70" width="110" height="27" rx="7" style="fill:#241a33;stroke:#7c3aed"/>
+    <text x="10" y="88" style="fill:#c9a6ff;font-size:14px">Paris</text>
+  </g>
+
+  <!-- Bracket -->
+  <g transform="translate(296,24)">
+    <text class="card-label" x="0" y="0">Bracket</text>
+    <text x="0" y="34" style="fill:#e0b84d;font-family:monospace;font-size:15px">[ref]</text>
+    <rect x="0" y="70" width="110" height="26" rx="4" style="fill:rgba(124,58,237,0.12)"/>
+    <text x="8" y="88" style="fill:#5ec97a;font-family:monospace;font-size:13px">source(3)</text>
+  </g>
+
+  <!-- Underline -->
+  <g transform="translate(432,24)">
+    <text class="card-label" x="0" y="0">Underline</text>
+    <text x="0" y="32" style="fill:#dcddde;font-size:15px;text-decoration:underline;text-decoration-style:dotted">jargon</text>
+    <text x="0" y="88" style="fill:#dcddde;font-size:14px;text-decoration:underline;text-decoration-color:#a882ff">meaning here</text>
+  </g>
+
+  <!-- Badge -->
+  <g transform="translate(568,24)">
+    <text class="card-label" x="0" y="0">Badge</text>
+    <circle cx="14" cy="30" r="13" style="fill:#7c3aed"/>
+    <text x="14" y="34" text-anchor="middle" style="fill:#fff;font-size:11px;font-weight:700">3</text>
+    <rect x="0" y="70" width="100" height="24" rx="5" style="fill:#2b2b2b"/>
+    <text x="8" y="87" style="fill:#dcddde;font-size:13px">footnote text</text>
+  </g>
+
+  <line x1="24" y1="130" x2="676" y2="130" style="stroke:#2b2b2b"/>
+  <text x="24" y="160" style="fill:#7c7c7c;font-size:13px">Same collapsed/expanded mechanics, five looks — plus a fully custom style with your own colors.</text>
+  <text x="24" y="182" style="fill:#5c5c5c;font-size:12px">Each fold class picks one style independently, so different classes can look different in the same note.</text>
+</svg>

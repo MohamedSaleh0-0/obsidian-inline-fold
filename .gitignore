@@ -1,26 +1,4 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Diagnostics
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# Dependency directories
 node_modules/
-jspm_packages/
-
-# TypeScript build cache
-*.tsbuildinfo
-.npm
-.eslintcache
-
-# Production bundled output file (compiled by esbuild)
 main.js
-
-# Operating System files
+*.js.map
 .DS_Store
-Thumbs.db

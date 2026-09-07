@@ -1,96 +1,205 @@
-.markdown-rendered .inline-capsule-wrapper,
-.markdown-rendered .inline-capsule-trigger,
-.markdown-rendered .inline-capsule-content {
-    cursor: pointer;
-    text-decoration: none;
-    border-bottom: none;
-    box-shadow: none;
+/* Base structural rules. Visibility is entirely class-driven (never
+   element.style from JS), so CSS snippets can freely override any part,
+   and hover-reveal can win over expanded/collapsed state through normal
+   specificity instead of fighting inline styles. */
+.inline-fold-wrapper {
+  cursor: pointer;
+}
+.inline-fold-wrapper .inline-fold-trigger,
+.inline-fold-wrapper .inline-fold-content {
+  cursor: pointer;
+}
+.inline-fold-wrapper .inline-fold-content {
+  display: none;
+}
+.inline-fold-wrapper.is-expanded .inline-fold-trigger {
+  display: none;
+}
+.inline-fold-wrapper.is-expanded .inline-fold-content {
+  display: inline;
+}
+.inline-fold-wrapper.is-hover-revealed:not(.is-expanded) .inline-fold-trigger {
+  display: none;
+}
+.inline-fold-wrapper.is-hover-revealed:not(.is-expanded) .inline-fold-content {
+  display: inline;
 }
 
-.markdown-rendered .inline-capsule-wrapper {
-    display: inline;
-    unicode-bidi: isolate;
-    direction: inherit;
+.inline-fold-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -0.15em;
+  margin-right: 3px;
+}
+.inline-fold-icon svg {
+  width: 0.9em;
+  height: 0.9em;
 }
 
-.markdown-rendered .inline-capsule-wrapper .inline-capsule-content {
-    display: none;
-    unicode-bidi: isolate;
-    direction: inherit;
+/* Rich content rendered inside a fold's revealed content (bold/italic/
+   code/links/wikilinks — see core/inlineMarkdown.ts). Kept minimal and
+   inheriting rather than imposing a specific look, since it's rendering
+   *inside* one of the theme rules above and shouldn't fight it. */
+.inline-fold-content code {
+  font-family: var(--font-monospace);
+  background-color: var(--code-background, var(--background-modifier-form-field));
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.inline-fold-content a.internal-link,
+.inline-fold-content a {
+  color: var(--link-color, var(--text-accent));
+  text-decoration: none;
+}
+.inline-fold-content a.internal-link:hover,
+.inline-fold-content a:hover {
+  text-decoration: underline;
 }
 
-.markdown-rendered .inline-capsule-wrapper.is-expanded .inline-capsule-content,
-.markdown-rendered .inline-capsule-wrapper.is-hover-revealed .inline-capsule-content {
-    display: inline;
-}
-
-.markdown-rendered .inline-capsule-wrapper.is-expanded .inline-capsule-trigger,
-.markdown-rendered .inline-capsule-wrapper.is-hover-revealed .inline-capsule-trigger {
-    display: none;
-}
-
-.markdown-rendered .inline-capsule-trigger, 
-.markdown-rendered .inline-capsule-content {
-    display: inline-block;
-    unicode-bidi: isolate;
-}
-
-.markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-trigger {
-    color: var(--text-muted);
-    font-weight: 600;
-    opacity: 0.8;
-    text-decoration: none;
-    border-bottom: none;
-}
-
-.markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-trigger:hover {
-    color: var(--text-normal);
+/* A short, tasteful pop when content becomes visible — deliberately not
+   applied to the trigger's reappearance on collapse, or to the initial
+   render of a note (both would just add visual noise). Using @keyframes
+   rather than a `transition` sidesteps the fact that `display` can't be
+   transitioned: an `animation` still plays correctly the moment an
+   element starts matching a rule that also flips its `display`. */
+@keyframes inline-fold-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+.inline-fold-wrapper.is-expanded .inline-fold-content,
+.inline-fold-wrapper.is-hover-revealed:not(.is-expanded) .inline-fold-content {
+  animation: inline-fold-reveal 160ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inline-fold-wrapper.is-expanded .inline-fold-content,
+  .inline-fold-wrapper.is-hover-revealed:not(.is-expanded) .inline-fold-content {
+    animation: none;
+  }
 }
 
-.markdown-rendered .inline-capsule-wrapper.theme-ghost .inline-capsule-content {
-    color: var(--text-normal);
-    background-color: var(--background-modifier-form-field);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-style: normal;
-    text-decoration: none;
-    border-bottom: none;
+/* Each theme is its own class, so folds of different styleTypes can sit
+   side by side in the same note — the old body[data-inline-capsule-style]
+   attribute selector could only ever represent one theme globally, and
+   in practice was never even applied to the body, so it did nothing. */
+
+/* ===================== Ghost ===================== */
+.inline-fold-theme-ghost {
+  display: inline;
+}
+.inline-fold-theme-ghost .inline-fold-trigger {
+  color: var(--text-muted);
+  font-weight: 600;
+  opacity: 0.8;
+}
+.inline-fold-theme-ghost:hover .inline-fold-trigger {
+  color: var(--text-accent-hover);
+  text-decoration: underline;
+}
+.inline-fold-theme-ghost .inline-fold-content {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-form-field);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-/* Smart Pill Layouts */
-.markdown-rendered .inline-capsule-wrapper.theme-pill .inline-capsule-trigger {
-    background-color: var(--background-modifier-border);
-    color: var(--text-normal);
-    padding: 1px 6px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    border: 1px solid var(--background-modifier-border-hover);
+/* ===================== Pill ===================== */
+.inline-fold-theme-pill {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: baseline;
+}
+.inline-fold-theme-pill .inline-fold-trigger {
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 1px 8px;
+  color: var(--text-normal);
+  font-size: 0.9em;
+}
+.inline-fold-theme-pill .inline-fold-content {
+  background-color: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  color: var(--text-accent);
+  font-size: 0.95em;
 }
 
-.markdown-rendered .inline-capsule-wrapper.theme-pill .inline-capsule-content {
-    background-color: var(--background-primary-alt);
-    color: var(--text-accent);
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--background-modifier-border);
+/* ===================== Bracket ===================== */
+.inline-fold-theme-bracket .inline-fold-trigger {
+  color: var(--text-warning);
+  font-family: var(--font-monospace);
+}
+.inline-fold-theme-bracket .inline-fold-trigger::before {
+  content: "[";
+}
+.inline-fold-theme-bracket .inline-fold-trigger::after {
+  content: "]";
+}
+.inline-fold-theme-bracket .inline-fold-content {
+  color: var(--text-success);
+  font-family: var(--font-monospace);
+  background-color: rgba(var(--interactive-accent-rgb), 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-/* Bracket Block Layouts */
-.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger {
-    color: var(--text-warning);
-    font-family: var(--font-monospace);
+/* ===================== Underline ===================== */
+.inline-fold-theme-underline .inline-fold-trigger {
+  color: var(--text-normal);
+  border-bottom: 1px dotted var(--text-faint);
+  cursor: help;
+}
+.inline-fold-theme-underline .inline-fold-content {
+  color: var(--text-normal);
+  border-bottom: 1px solid var(--text-accent);
 }
 
-.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::before {
-    content: "[";
+/* ===================== Badge ===================== */
+.inline-fold-theme-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.inline-fold-theme-badge .inline-fold-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  padding: 0 5px;
+  border-radius: 999px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+}
+.inline-fold-theme-badge .inline-fold-content {
+  background-color: var(--background-modifier-hover);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 
-.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-trigger::after {
-    content: "]";
-}
-
-.markdown-rendered .inline-capsule-wrapper.theme-bracket .inline-capsule-content {
-    font-family: var(--font-monospace);
-    color: var(--text-success);
+/* ===================== Custom ===================== */
+/* Values come from CSS custom properties set per-instance in JS (see
+   render/styleEngine.ts) rather than inline color/border/etc styles, so
+   only these eight variables ever come from JS — everything else about
+   how a "custom" fold looks still lives here. */
+.inline-fold-theme-custom .inline-fold-trigger,
+.inline-fold-theme-custom .inline-fold-content {
+  color: var(--fold-text-color, var(--text-normal));
+  background-color: var(--fold-bg-color, transparent);
+  border-color: var(--fold-border-color, transparent);
+  border-style: var(--fold-border-style, solid);
+  border-width: var(--fold-border-width, 1px);
+  border-radius: var(--fold-border-radius, 6px);
+  padding: var(--fold-padding, 2px 8px);
+  font-size: var(--fold-font-size, inherit);
 }

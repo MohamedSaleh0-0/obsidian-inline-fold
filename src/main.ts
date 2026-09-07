@@ -1,203 +1,66 @@
-import { Plugin } from "obsidian";
-import { CapsuleSettings, DEFAULT_SETTINGS, FoldClass } from "./domain/models/Settings";
-import { createCapsuleExtension, updateCapsuleSettingsEffect, toggleSingleCapsuleEffect } from "./infrastructure/codemirror/Extension";
-import { createMarkdownPostProcessor } from "./infrastructure/obsidian/PostProcessor";
-import { InlineCapsuleSettingTab } from "./infrastructure/obsidian/SettingsTab";
-import { CapsuleParser } from "./application/CapsuleParser";
+import { EditorView } from "@codemirror/view";
+import { MarkdownView, Plugin } from "obsidian";
+import { PluginDataStore } from "./data/PluginDataStore";
+import { FoldClass } from "./core/types";
+import { SettingsTab } from "./settings/SettingsTab";
+import { CommandManager } from "./commands/commandManager";
+import { createLivePreviewExtension, refreshDecorationsEffect } from "./live-preview";
+import { createFoldPostProcessor } from "./reading-view/postProcessor";
 
-export default class InlineCapsulePlugin extends Plugin {
-    settings: CapsuleSettings = DEFAULT_SETTINGS;
-    expandedCache: Set<string> = new Set();
-    private registeredCommandIds: string[] = [];
+export default class InlineFoldPlugin extends Plugin {
+  dataStore!: PluginDataStore;
+  private commandManager!: CommandManager;
 
-    async onload() {
-        await this.loadSettings();
+  async onload(): Promise<void> {
+    this.dataStore = new PluginDataStore(this);
+    await this.dataStore.load();
 
-        this.registerEditorExtension(createCapsuleExtension(this.settings, this.expandedCache));
-        this.registerMarkdownPostProcessor(createMarkdownPostProcessor(this.settings, this.expandedCache));
-        this.addSettingTab(new InlineCapsuleSettingTab(this.app, this));
+    this.commandManager = new CommandManager(this, this.dataStore);
+    this.commandManager.refresh();
 
-        this.refreshPluginCommands();
-    }
+    this.registerEditorExtension(createLivePreviewExtension(this.dataStore, () => this.classesById(), this.app));
+    this.registerMarkdownPostProcessor(createFoldPostProcessor(this.dataStore, () => this.classesById(), this.app));
 
-    async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    }
+    this.addSettingTab(new SettingsTab(this.app, this, this.dataStore, () => this.onSettingsChanged()));
 
-    async saveSettings() {
-        await this.saveData(this.settings);
-        
-        const clonedSettings = { ...this.settings };
-        
-        this.app.workspace.iterateAllLeaves((leaf) => {
-            if (leaf.view.getViewType() === "markdown") {
-                const markdownView = leaf.view as any;
-                if (markdownView.editor && markdownView.editor.cm) {
-                    markdownView.editor.cm.dispatch({
-                        effects: updateCapsuleSettingsEffect.of(clonedSettings)
-                    });
-                }
-            }
-        });
+    // Single source of truth (PluginDataStore) notifies every open Live
+    // Preview editor for the affected file — including panes other than
+    // the one the toggle happened in — instead of each editor keeping
+    // its own copy of what's expanded.
+    this.registerEvent(
+      this.dataStore.on("expansion-change", (...data: unknown[]) => this.refreshLivePreview(data[0] as string)),
+    );
 
-        this.refreshPluginCommands();
-    }
+    this.register(() => {
+      void this.dataStore.flush();
+    });
+  }
 
-    refreshPluginCommands() {
-        const appCommands = (this.app as any).commands;
-        if (appCommands && this.registeredCommandIds.length > 0) {
-            this.registeredCommandIds.forEach(cmdId => {
-                if (appCommands.commands[cmdId]) {
-                    appCommands.removeCommand(cmdId);
-                }
-            });
-            this.registeredCommandIds = [];
-        }
+  async onunload(): Promise<void> {
+    await this.dataStore.flush();
+  }
 
-        const parser = new CapsuleParser(this.settings.classes);
+  private classesById(): Map<string, FoldClass> {
+    return new Map(this.dataStore.getSettings().classes.map((cls) => [cls.id, cls]));
+  }
 
-        this.settings.classes.forEach((foldClass: FoldClass) => {
-            const commandId = `inline-fold-toggle-${foldClass.id}`;
-            const commandName = `Toggle Encapsulation: ${foldClass.name}`;
+  private onSettingsChanged(): void {
+    this.commandManager.refresh();
+    this.app.workspace.iterateAllLeaves((leaf) => this.dispatchRefresh(leaf));
+  }
 
-            this.addCommand({
-                id: commandId,
-                name: commandName,
-                editorCallback: (editor) => {
-                    const startSym = foldClass.startSymbol;
-                    const endSym = foldClass.endSymbol;
-                    
-                    const cursor = editor.getCursor();
-                    const currentLineText = editor.getLine(cursor.line);
-                    
-                    let lineOffset = 0;
-                    for (let l = 0; l < cursor.line; l++) {
-                        lineOffset += editor.getLine(l).length + 1;
-                    }
-                    const absoluteCursorPos = lineOffset + cursor.ch;
+  private refreshLivePreview(filePath: string): void {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view instanceof MarkdownView && leaf.view.file?.path === filePath) {
+        this.dispatchRefresh(leaf);
+      }
+    });
+  }
 
-                    const parsedNodes = parser.parseLine(currentLineText, lineOffset);
-                    let targetNode = null;
-
-                    for (const node of parsedNodes) {
-                        if (absoluteCursorPos >= node.from && absoluteCursorPos <= node.to) {
-                            targetNode = node;
-                            break;
-                        }
-                    }
-
-                    if (targetNode) {
-                        const localFrom = targetNode.from - lineOffset;
-                        const localTo = targetNode.to - lineOffset;
-                        const originalContent = targetNode.content;
-                        
-                        editor.replaceRange(
-                            originalContent,
-                            { line: cursor.line, ch: localFrom },
-                            { line: cursor.line, ch: localTo }
-                        );
-                        
-                        editor.setCursor({ line: cursor.line, ch: localFrom });
-                        return;
-                    }
-
-                    if (editor.somethingSelected()) {
-                        const selectedText = editor.getSelection();
-                        
-                        if (selectedText.startsWith(startSym) && selectedText.endsWith(endSym)) {
-                            const cleaned = selectedText.substring(startSym.length, selectedText.length - endSym.length);
-                            editor.replaceSelection(cleaned);
-                        } else {
-                            editor.replaceSelection(`${startSym}${selectedText}${endSym}`);
-                        }
-                    } else {
-                        const wordRegex = /[\p{L}\p{N}_-]/u;
-                        let ch = cursor.ch;
-                        
-                        let start = ch;
-                        while (start > 0 && wordRegex.test(currentLineText[start - 1])) {
-                            start--;
-                        }
-                        
-                        let end = ch;
-                        while (end < currentLineText.length && wordRegex.test(currentLineText[end])) {
-                            end++;
-                        }
-
-                        if (start < end && ch < end) {
-                            const word = currentLineText.substring(start, end);
-                            editor.replaceRange(
-                                `${startSym}${word}${endSym}`,
-                                { line: cursor.line, ch: start },
-                                { line: cursor.line, ch: end }
-                            );
-                            editor.setCursor({ line: cursor.line, ch: start + startSym.length + word.length + endSym.length });
-                        } else {
-                            editor.replaceRange(
-                                `${startSym}${endSym}`,
-                                { line: cursor.line, ch: ch }
-                            );
-                            
-                            editor.setCursor({
-                                line: cursor.line,
-                                ch: ch + startSym.length
-                            });
-                        }
-                    }
-                }
-            });
-
-            this.registeredCommandIds.push(`${this.manifest.id}:${commandId}`);
-        });
-
-        const lineCommandId = "inline-fold-toggle-current-line";
-        const lineCommandName = "Toggle expansion/collapse of folded text";
-
-        this.addCommand({
-            id: lineCommandId,
-            name: lineCommandName,
-            editorCallback: (editor) => {
-                const cmInstance = (editor as any).cm;
-                if (!cmInstance) return;
-
-                const cursor = editor.getCursor();
-                const currentLineText = editor.getLine(cursor.line);
-                
-                let lineOffset = 0;
-                for (let l = 0; l < cursor.line; l++) {
-                    lineOffset += editor.getLine(l).length + 1;
-                }
-                const absoluteCursorPos = lineOffset + cursor.ch;
-
-                const parsedNodes = parser.parseLine(currentLineText, lineOffset);
-                if (parsedNodes.length === 0) return;
-
-                if (this.settings.hotkeyExpansionTarget === "line") {
-                    parsedNodes.forEach(node => {
-                        cmInstance.dispatch({
-                            effects: toggleSingleCapsuleEffect.of(node.from)
-                        });
-                    });
-                } else {
-                    let closestNode = parsedNodes[0];
-                    let minDistance = Math.abs(absoluteCursorPos - (closestNode.from + closestNode.to) / 2);
-
-                    parsedNodes.forEach(node => {
-                        const mid = (node.from + node.to) / 2;
-                        const distance = Math.abs(absoluteCursorPos - mid);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            closestNode = node;
-                        }
-                    });
-
-                    cmInstance.dispatch({
-                        effects: toggleSingleCapsuleEffect.of(closestNode.from)
-                    });
-                }
-            }
-        });
-
-        this.registeredCommandIds.push(`${this.manifest.id}:${lineCommandId}`);
-    }
+  private dispatchRefresh(leaf: { view: unknown }): void {
+    const view = leaf.view;
+    if (!(view instanceof MarkdownView)) return;
+    const cm = (view.editor as unknown as { cm?: EditorView }).cm;
+    cm?.dispatch({ effects: refreshDecorationsEffect.of(null) });
+  }
 }
