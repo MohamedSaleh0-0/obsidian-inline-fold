@@ -36,8 +36,8 @@ export default class InlineFoldPlugin extends Plugin {
     });
   }
 
-  onunload(): void {
-    void this.dataStore.flush();
+  async onunload(): Promise<void> {
+    await this.dataStore.flush();
   }
 
   private classesById(): Map<string, FoldClass> {

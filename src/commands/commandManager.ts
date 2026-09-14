@@ -1,8 +1,9 @@
-import { Editor, Notice, Plugin } from "obsidian";
+import { Editor, EditorPosition, Notice, Plugin } from "obsidian";
 import { FoldParser } from "../core/parser";
 import { assignFoldKeys, flattenFoldTree } from "../core/foldTree";
 import { FoldClass, FoldNode } from "../core/types";
 import { PluginDataStore } from "../data/PluginDataStore";
+import { AnnotationInputModal } from "./annotationInputModal";
 
 const WORD_CHAR = /[\p{L}\p{N}_-]/u;
 
@@ -131,33 +132,70 @@ export class CommandManager {
       return;
     }
 
+    // Resolve what to wrap — the selection, or the word under the
+    // cursor — as one absolute-offset range regardless of source, so
+    // both paths below (immediate wrap, or wrap after the modal
+    // returns) can share the same insertion logic.
+    let from: EditorPosition;
+    let to: EditorPosition;
+    let term: string;
+
     if (editor.somethingSelected()) {
       const selection = editor.getSelection();
       if (selection.startsWith(cls.startSymbol) && selection.endsWith(cls.endSymbol)) {
         editor.replaceSelection(selection.substring(cls.startSymbol.length, selection.length - cls.endSymbol.length));
-      } else {
-        editor.replaceSelection(`${cls.startSymbol}${selection}${cls.endSymbol}`);
+        return;
       }
+      from = editor.getCursor("from");
+      to = editor.getCursor("to");
+      term = selection;
+    } else {
+      let start = cursor.ch;
+      let end = cursor.ch;
+      while (start > 0 && WORD_CHAR.test(line[start - 1])) start--;
+      while (end < line.length && WORD_CHAR.test(line[end])) end++;
+      from = { line: cursor.line, ch: start };
+      to = { line: cursor.line, ch: end };
+      term = line.substring(start, end);
+    }
+
+    // A fold's content is one continuous piece of text, so wrapping and
+    // then just typing the content inline works fine. An annotation
+    // needs two separate pieces — the visible term and its popover
+    // definition — which doesn't fit that same flow, hence the modal.
+    if (cls.contentVisibility === "visible") {
+      new AnnotationInputModal(this.plugin.app, term, (result) => {
+        this.insertWrapped(editor, cls, from, to, result.term, result.definition);
+      }).open();
       return;
     }
 
-    let start = cursor.ch;
-    let end = cursor.ch;
-    while (start > 0 && WORD_CHAR.test(line[start - 1])) start--;
-    while (end < line.length && WORD_CHAR.test(line[end])) end++;
+    this.insertWrapped(editor, cls, from, to, term, undefined);
+  }
 
-    if (start < end) {
-      const word = line.substring(start, end);
-      editor.replaceRange(
-        `${cls.startSymbol}${word}${cls.endSymbol}`,
-        { line: cursor.line, ch: start },
-        { line: cursor.line, ch: end },
-      );
-      editor.setCursor({ line: cursor.line, ch: start + cls.startSymbol.length + word.length + cls.endSymbol.length });
-    } else {
-      editor.replaceRange(`${cls.startSymbol}${cls.endSymbol}`, cursor);
-      editor.setCursor({ line: cursor.line, ch: cursor.ch + cls.startSymbol.length });
-    }
+  /** Performs the actual document edit for a wrap — shared by the plain and modal-driven paths. */
+  private insertWrapped(
+    editor: Editor,
+    cls: FoldClass,
+    from: EditorPosition,
+    to: EditorPosition,
+    term: string,
+    definition: string | undefined,
+  ): void {
+    const inner = definition ? `${term}|${definition}` : term;
+    const wrapped = `${cls.startSymbol}${inner}${cls.endSymbol}`;
+    // Computed as an absolute offset, not line/ch math, since `wrapped`
+    // can contain newlines — a multi-line selection being wrapped, or a
+    // multi-line annotation definition from the modal's textarea.
+    const fromOffset = editor.posToOffset(from);
+
+    editor.replaceRange(wrapped, from, to);
+
+    const cursorOffset =
+      term.length === 0 && definition === undefined
+        ? fromOffset + cls.startSymbol.length // nothing was wrapped — leave the cursor between the delimiters
+        : fromOffset + wrapped.length; // already-complete content — cursor goes after it
+    editor.setCursor(editor.offsetToPos(cursorOffset));
   }
 
   /** Flips persisted expand/collapse state — never touches document text. */

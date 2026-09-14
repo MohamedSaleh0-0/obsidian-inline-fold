@@ -235,3 +235,150 @@ Copy `main.js`, `manifest.json`, and `styles.css` into
 - A fold browser panel (list every fold in a note/vault, jump-to)
 - Fold stats (counts, times revealed) — still blocked on the same
   self-test-mode design questions as before
+
+## Post-launch fix: migrated to Obsidian 1.13's declarative settings API
+
+Obsidian 1.13 (May 2026) shipped a rebuilt Settings window and a new
+`getSettingDefinitions()` API for plugin settings tabs, deprecating the
+old imperative `display()` approach. The old imperative tab still
+"worked" under 1.13 in the sense that it ran without erroring, but
+rendered visibly broken: rows packed into narrow flex columns instead
+of stacking normally. `redisplayPreservingScroll()` (see above) was a
+fix for a real, separate imperative-API bug, but it was built for the
+old rendering model — it didn't help with 1.13's layout, and once the
+declarative API is in use, calling `display()` to force a refresh is a
+no-op anyway (1.13+ bypasses it whenever `getSettingDefinitions()`
+returns a non-empty array).
+
+Rebuilt `SettingsTab.ts` around `getSettingDefinitions()`:
+
+- Settings aren't stored on the conventional `this.plugin.settings`
+  (they live in `PluginDataStore`), so `getControlValue`/
+  `setControlValue` are overridden to read/write through it.
+- Per-class fields are addressed by a synthetic `class.<id>.<field>`
+  key rather than an array index, so a control stays correctly bound
+  to its class across reorders and deletes — a plain index would go
+  stale the moment the user drags a row.
+- Fold classes are now a `type: 'list'` of `type: 'page'` entries: one
+  drill-in sub-page per class, with native add/delete/reorder
+  affordances, instead of the old flat card-per-class layout. A class
+  with a delimiter collision or invalid regex gets a `status: 'warning'`
+  badge on its list entry, visible without opening the page.
+- The "Custom style" fields only show when `styleType === 'custom'` via
+  the declarative `visible` predicate, which needed the old
+  imperative tab's `this.display()` re-render trick to achieve. The
+  Start/End symbol descriptions no longer change text based on the
+  regex toggle, since `desc` isn't a reactive predicate the way
+  `visible`/`disabled` are — a static description covering both cases
+  was simpler and more reliable than forcing extra re-renders for it.
+- `minAppVersion` bumped to `1.13.0`. Since this plugin isn't published
+  yet, there's no existing user base on older Obsidian to support, so
+  this took the clean migration path (delete `display()` entirely)
+  rather than maintaining both APIs side by side.
+
+## Annotations & popovers ("enrich text")
+
+Started from a question about whether hover-revealed content should be
+a separate plugin or a feature of this one. Landed on: same plugin,
+because the marking/parsing/identity/settings-class machinery is
+identical either way — only the *reveal* mechanism differs. What
+changed is `core/revealMode.ts`'s two small pure functions
+(`determineRenderMode`, `usesPopover`), used by both the renderer and
+the settings UI's `visible` predicates so the two can't drift apart.
+
+Three new orthogonal-ish fields on `FoldClass`:
+
+- `contentVisibility: "hidden" | "visible"` — the fundamental split.
+  "hidden" is the classic fold. "visible" is new: content renders as
+  normal text, and `alias` (the part after `|`) becomes a hover
+  definition instead of a trigger override — same parser output
+  (`FoldNode.content`/`.alias`), reinterpreted by the renderer
+  depending on the class. No parser changes needed at all.
+- `revealStyle: "inline" | "popover"` — only meaningful when hidden.
+  Inline is the existing widget-swap behavior. Popover means content
+  never mounts inline; a floating card shows it instead.
+- `popoverContentMode: "simple" | "rich"` — only meaningful when a
+  popover is actually in play (`usesPopover()`). Simple reuses the
+  existing inline-markdown parser. Rich uses Obsidian's real,
+  async `MarkdownRenderer.render()` — genuinely more capable than
+  what's possible for the classic inline fold, because a popover isn't
+  constrained to stay inline or render synchronously the way a CM6
+  widget's `toDOM()` is. This is the one feature that removes the
+  original inline-content constraint rather than working around it.
+
+`render/domBuilder.ts`'s `renderFoldNode` now dispatches on
+`determineRenderMode()` to one of three render functions
+(`renderInlineFoldNode` — unchanged behavior, `renderPopoverFoldNode`,
+`renderAnnotationNode`), rather than growing one function full of
+conditionals. Annotations with no alias render as inert plain text
+rather than a hover affordance with nothing to show.
+
+`render/popover.ts` is a new, self-contained module — positioning,
+show/hide, and content-mode rendering all live together since they're
+genuinely one concern:
+
+- Appended to `anchorEl.ownerDocument.body`, positioned with `position:
+  fixed` from `getBoundingClientRect()`, specifically so it can't be
+  clipped by a CM6 editor's own `overflow` scroll container the way a
+  popover nested inside the editor DOM would be.
+- Flips above the anchor if there's no room below; clamps horizontally
+  to the viewport. No continuous repositioning while open — it just
+  closes on scroll, which is simpler and avoids jank for what's meant
+  to be a transient card.
+- Hover has a short grace period so moving the pointer from the trigger
+  into the popover itself (to read a longer definition, follow a link
+  in it, etc.) doesn't close it.
+- In "both" interaction mode, a click **pins** whatever's open —
+  including something already opened by hover — so it survives the
+  pointer moving away, matching how click already behaves as the
+  "sticky" interaction for the classic inline fold. The first version
+  of this didn't have pinning and a click-opened popover would still
+  vanish on mouseleave exactly like hover, which was a real
+  inconsistency with the existing click semantics, caught before
+  shipping rather than after.
+- Rich content's `MarkdownRenderer.render()` needs a `Component` for
+  its lifecycle; a fresh one is created per popover and unloaded on
+  hide, rather than threading the plugin's own Component through every
+  render call site for what's a short-lived, self-contained piece of
+  UI.
+
+Deliberately not attempted: hooking into Obsidian's internal
+`hover-link`/`HoverPopover` mechanism (what Page Preview and the
+popular Hover Editor plugin use) to get automatic cross-plugin
+compatibility for free. That mechanism isn't part of the public,
+documented API surface, and Hover Editor's own maintainers note it can
+break across Obsidian versions. Built a small positioning/interaction
+system instead, on public APIs only, at the cost of not automatically
+composing with Hover Editor's pin/resize/edit features for these
+popovers specifically.
+
+## Annotation input modal for "Toggle encapsulation"
+
+Gap found after shipping annotations: "Toggle encapsulation" wraps
+text in a class's delimiters, no more — fine for a hidden/fold class,
+since its content is one continuous piece of text you can just keep
+typing after wrapping. For a "visible" (annotation) class this command
+was useless: it would insert `[=term=]` with no alias at all, which
+renders (correctly, per the earlier "no misleading hover" decision) as
+inert plain text — not the point.
+
+Added `AnnotationInputModal` (`src/commands/annotationInputModal.ts`):
+when the target class's `contentVisibility` is `"visible"`,
+`toggleEncapsulation` now resolves the term (selection or word under
+cursor, same as before) and opens a small modal with two fields — Text
+(the term, pre-filled and still editable) and Definition (a textarea)
+— instead of wrapping immediately. Submitting inserts
+`[=term|definition=]`; an empty definition just inserts `[=term=]`
+(no alias), consistent with how the plain-text-no-popover fallback
+already worked. Hidden classes are completely unaffected — same
+immediate wrap as always.
+
+One bug caught before it shipped, not after: the first version of the
+wrap-insertion logic computed the post-insert cursor position with
+line/ch arithmetic (`ch + wrapped.length`), which is wrong the moment
+`wrapped` contains a newline — entirely plausible for an annotation's
+definition, typed into a multi-line textarea. Reworked
+`insertWrapped()` to convert the insertion point to an absolute offset
+via `editor.posToOffset()` first, add `wrapped.length` in offset space
+(newline-agnostic), and convert back with `editor.offsetToPos()` after
+the edit — correct regardless of how many lines get inserted.

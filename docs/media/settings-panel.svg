@@ -6,50 +6,55 @@
     .desc { fill: #7c7c7c; font-size: 11.5px; }
     .row-line { stroke: #2a2a2a; stroke-width: 1; }
     .field { fill: #161616; stroke: #333; }
-    .card { fill: #232323; stroke: #333; }
+    .row { fill: #232323; stroke: #2f2f2f; }
+    .chev { fill: #6b6b6b; }
   </style>
   <rect class="win" x="0" y="0" width="620" height="380" rx="10"/>
 
-  <text class="h" x="24" y="34" style="font-size:18px">Inline Fold</text>
-
   <!-- global setting rows -->
-  <g transform="translate(24,54)">
+  <g transform="translate(24,28)">
     <text class="name" x="0" y="16">Interaction mode</text>
     <text class="desc" x="0" y="32">How folds expand: click, hover, or both.</text>
     <rect class="field" x="440" y="2" width="150" height="26" rx="5"/>
     <text x="452" y="19" style="fill:#dcddde;font-size:12.5px">Both ▾</text>
-    <line class="row-line" x1="0" y1="48" x2="596" y2="48"/>
+    <line class="row-line" x1="0" y1="48" x2="572" y2="48"/>
   </g>
 
-  <g transform="translate(24,110)">
+  <g transform="translate(24,84)">
     <text class="name" x="0" y="16">Auto-collapse after (ms)</text>
     <text class="desc" x="0" y="32">0 disables it — useful for timed self-testing.</text>
     <rect class="field" x="500" y="2" width="90" height="26" rx="5"/>
     <text x="512" y="19" style="fill:#dcddde;font-size:12.5px">0</text>
-    <line class="row-line" x1="0" y1="48" x2="596" y2="48"/>
   </g>
 
-  <text class="h" x="24" y="192" style="font-size:15px">Fold classes</text>
-  <rect class="field" x="500" y="176" width="96" height="26" rx="5" style="fill:#2f2145;stroke:#7c3aed"/>
-  <text x="514" y="193" style="fill:#c9a6ff;font-size:12.5px">+ Add class</text>
-
-  <!-- class card -->
-  <g transform="translate(24,216)">
-    <rect class="card" x="0" y="0" width="572" height="146" rx="8"/>
-    <text x="16" y="26" style="fill:#dcddde;font-size:14px;font-weight:700">Flashcard Answer</text>
-    <rect x="480" y="10" width="76" height="22" rx="5" style="fill:#3a1f1f;stroke:#7a3030"/>
-    <text x="496" y="25" style="fill:#e08a8a;font-size:11px">Delete</text>
-
-    <text class="name" x="16" y="56">Start symbol</text>
-    <rect class="field" x="420" y="42" width="136" height="24" rx="5"/>
-    <text x="430" y="58" style="fill:#dcddde;font-size:12px;font-family:monospace">[=</text>
-
-    <text class="name" x="16" y="88">End symbol</text>
-    <rect class="field" x="420" y="74" width="136" height="24" rx="5"/>
-    <text x="430" y="90" style="fill:#dcddde;font-size:12px;font-family:monospace">=]</text>
-
-    <text class="name" x="16" y="120">Style</text>
-    <rect class="field" x="420" y="106" width="136" height="24" rx="5"/>
-    <text x="430" y="122" style="fill:#dcddde;font-size:12px">Pill ▾</text>
+  <!-- Fold classes list header -->
+  <g transform="translate(24,148)">
+    <text class="h" x="0" y="0" style="font-size:15px">Fold classes</text>
+    <circle cx="572" cy="-6" r="12" style="fill:#2f2145;stroke:#7c3aed"/>
+    <text x="572" y="-1" text-anchor="middle" style="fill:#c9a6ff;font-size:15px;font-weight:700">+</text>
   </g>
+
+  <!-- list rows, each a navigable sub-page -->
+  <g transform="translate(24,168)">
+    <rect class="row" x="0" y="0" width="572" height="44" rx="7"/>
+    <text class="name" x="14" y="19">Flashcard Answer</text>
+    <text class="desc" x="14" y="34">[= … =]</text>
+    <path class="chev" d="M 548 15 L 556 22 L 548 29" fill="none" stroke="#6b6b6b" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(24,220)">
+    <rect class="row" x="0" y="0" width="572" height="44" rx="7" style="fill:#2a2018;stroke:#8a5a2a"/>
+    <text class="name" x="14" y="19">Spoiler ⚠</text>
+    <text class="desc" x="14" y="34" style="fill:#c99b5c">[= … =] — collides with an earlier class</text>
+    <path class="chev" d="M 548 15 L 556 22 L 548 29" fill="none" stroke="#c99b5c" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(24,272)">
+    <rect class="row" x="0" y="0" width="572" height="44" rx="7"/>
+    <text class="name" x="14" y="19">Aside</text>
+    <text class="desc" x="14" y="34">{{ … }}</text>
+    <path class="chev" d="M 548 15 L 556 22 L 548 29" fill="none" stroke="#6b6b6b" stroke-width="2"/>
+  </g>
+
+  <text x="24" y="348" style="fill:#5c5c5c;font-size:12px">Tap a class to drill into its own page — start/end symbol, style, icon, colors.</text>
 </svg>

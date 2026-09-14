@@ -1,9 +1,9 @@
 {
   "id": "inline-fold",
   "name": "Inline Fold",
-  "version": "1.2.1",
+  "version": "2.0.0",
   "minAppVersion": "1.13.0",
-  "description": "Collapse and reveal inline text with click or hover for flashcards, spoilers, asides, and hidden notes, useful for summarization and studying. ",
+  "description": "Encapsulates inline text details seamlessly behind an expandable trigger.",
   "author": "Mohamed Saleh",
   "isDesktopOnly": false
 }

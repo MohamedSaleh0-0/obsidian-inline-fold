@@ -43,6 +43,14 @@ something, close Obsidian, come back tomorrow, and it's still expanded.
 - **Multiple fold classes** — define as many delimiter pairs as you
   want (`[=…=]` for flashcards, `{{…}}` for asides, whatever you pick),
   each with its own trigger text, icon, and style.
+- **Annotations, not just folds** — a class can leave its content
+  always visible instead of hidden, showing a definition or note in a
+  floating popover on hover/click instead — like a wikilink's hover
+  preview, but for any term you mark yourself.
+- **Popovers for hidden content too** — a fold can stay collapsed and
+  reveal its content in a floating card instead of expanding in place,
+  with the card able to render full Markdown (headings, lists, images,
+  embeds), not just inline text.
 - **Five built-in styles** (Ghost, Pill, Bracket, Underline, Badge) plus
   a fully custom style with your own colors, borders, and padding.
 - **Real nesting** — a fold can contain another fold, which stays
@@ -65,6 +73,9 @@ something, close Obsidian, come back tomorrow, and it's still expanded.
 </p>
 
 ## Installation
+
+Requires **Obsidian 1.13.0 or newer** (the settings tab uses Obsidian's
+declarative settings framework introduced in that release).
 
 **Manual install** (not yet on the Community Plugins list):
 
@@ -99,15 +110,52 @@ The mitochondria is the powerhouse ([=of the cell=]).
   <img src="docs/media/nested-folds.svg" width="620" alt="A collapsed outer fold expanding to reveal a fold nested inside it" />
 </p>
 
+## Annotations & popovers
+
+Every class isn't necessarily a fold. Set a class's **Content
+visibility** to "Always visible" and it becomes an annotation instead:
+the text renders normally, in place, all the time — and the part after
+`|` becomes a definition shown in a popover on hover or click, rather
+than a trigger override.
+
+```
+The [=mitochondria|the powerhouse of the cell=] is found in every cell.
+```
+
+Reads as plain text — *"The mitochondria is found in every cell"* —
+with "mitochondria" getting a subtle dotted underline. Hover it, and
+the definition appears in a floating card.
+
+<p align="center">
+  <img src="docs/media/annotation-popover.svg" width="620" alt="A term rendered as normal text with a floating popover showing its definition on hover" />
+</p>
+
+Hidden folds can use a popover too, instead of expanding in place —
+set **Reveal style** to "Floating card" on a hidden class and its
+content shows in the same kind of popover rather than pushing the
+surrounding text around. This is also the one place richer content
+makes sense: set **Popover content** to "Rich" and the card renders
+full Markdown (headings, lists, images, embeds) via Obsidian's own
+renderer, since a floating card — unlike an inline fold — was never
+constrained to fit on one line.
+
 ## Settings
 
 <p align="center">
-  <img src="docs/media/settings-panel.svg" width="560" alt="Mockup of the plugin's settings tab" />
+  <img src="docs/media/settings-panel.svg" width="560" alt="Mockup of the plugin's settings tab: general settings at top, fold classes as a reorderable list of drill-in pages below" />
   <br/>
   <sub><em>(placeholder mockup — not a real screenshot)</em></sub>
 </p>
 
-**Global**
+Settings live on Obsidian's native declarative settings framework
+(1.13+), which is also why the plugin requires Obsidian 1.13.0 or
+newer. General options sit directly on the tab; each fold class is a
+row in a reorderable list that opens its own drill-in page — add,
+delete, and drag-to-reorder classes right from the list, and a class
+with a delimiter conflict or invalid regex pattern is flagged with a
+warning badge before you even open it.
+
+**General**
 
 | Setting | What it does |
 |---|---|
@@ -119,22 +167,25 @@ The mitochondria is the powerhouse ([=of the cell=]).
 | Auto-pair delimiters | Typing a start symbol auto-inserts the matching end symbol. |
 | Auto-collapse after (ms) | A clicked-open fold re-collapses on its own after this delay. 0 disables it. |
 
-**Per fold class**
+**Per fold class** (its own page, opened from the "Fold classes" list)
 
 | Setting | What it does |
 |---|---|
 | Start / end symbol | The delimiter pair, or a regex pattern if "Use regex delimiters" is on. |
 | Use regex delimiters | Interpret the symbols above as regular expressions. Disables auto-pair and the wrap/unwrap command for that class, since there's no fixed literal text to insert. |
-| Trigger text | What shows on the collapsed badge (e.g. `?`). Can be overridden per-fold with `[=content|custom trigger=]`. |
-| Icon | An optional [Lucide](https://lucide.dev) icon shown before the trigger text. |
-| Style | Ghost / Pill / Bracket / Underline / Badge / Custom. |
+| Content visibility | Hidden (a fold) or Always visible (an annotation — content renders normally, and the part after `|` becomes a hover definition instead of a trigger override). |
+| Reveal style *(hidden classes only)* | Expand in place, or stay hidden and show content in a floating popover instead. |
+| Trigger text *(hidden classes only)* | What shows on the collapsed badge (e.g. `?`). Can be overridden per-fold with `[=content|custom trigger=]`. |
+| Icon *(hidden classes only)* | An optional [Lucide](https://lucide.dev) icon shown before the trigger text. |
+| Style *(hidden classes only)* | Ghost / Pill / Bracket / Underline / Badge / Custom. |
+| Popover content *(shown whenever a popover is used)* | Simple (inline formatting only) or Rich (full Markdown — headings, lists, images, embeds). |
 
 ## Commands
 
 Open the command palette (`Cmd/Ctrl+P`) and search "fold":
 
 - **Toggle expansion/collapse of folded text** — expand/collapse at the cursor.
-- **Toggle encapsulation: *[class name]*** — wrap the selection or word under the cursor in that class's delimiters, or unwrap if the cursor is already inside one.
+- **Toggle encapsulation: *[class name]*** — wrap the selection or word under the cursor in that class's delimiters, or unwrap if the cursor is already inside one. For an "Always visible" class, this opens a small modal to fill in the term and its definition instead of wrapping immediately, since an annotation needs both.
 - **Expand all / Collapse all folds in note** — every fold, or...
 - **Expand all / Collapse all: *[class name]*** — just one class's folds.
 - **Jump to next / previous fold** — cyclic navigation.

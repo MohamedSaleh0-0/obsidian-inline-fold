@@ -1,6 +1,6 @@
 {
   "name": "inline-fold",
-  "version": "1.2.1",
+  "version": "2.0.0",
   "description": "Encapsulates inline text details seamlessly behind an expandable trigger.",
   "main": "main.js",
   "scripts": {
@@ -16,8 +16,9 @@
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.26.3",
     "@types/node": "^20.12.7",
+    "builtin-modules": "^3.3.0",
     "esbuild": "^0.20.2",
-    "obsidian": "^1.13.0",
+    "obsidian": "^1.5.7",
     "tslib": "2.6.2",
     "typescript": "^5.4.5",
     "vitest": "^1.5.0"

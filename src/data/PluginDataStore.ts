@@ -32,7 +32,7 @@ export class PluginDataStore extends Events {
   }
 
   async load(): Promise<void> {
-    const raw = await this.plugin.loadData();
+    const raw = (await this.plugin.loadData()) as Record<string, unknown> | null;
     this.data = normalizePersistedData(raw);
 
     this.plugin.registerEvent(
@@ -155,8 +155,11 @@ function normalizePersistedData(raw: Record<string, unknown> | null): PersistedD
 
 /**
  * Fills in fields added to FoldClass after some classes were already
- * saved (`icon`, `useRegex`) so older data.json files don't leave a
- * literal `undefined` sitting in a settings field.
+ * saved (`icon`, `useRegex`, and now the reveal-mode fields) so older
+ * data.json files don't leave a literal `undefined` sitting in a
+ * settings field, and old classes keep behaving exactly as before —
+ * hidden content, expands inline, simple popover content if any of
+ * that ever becomes reachable.
  */
 function backfillClassFields(settings: PluginSettings): PluginSettings {
   return {
@@ -165,6 +168,9 @@ function backfillClassFields(settings: PluginSettings): PluginSettings {
       ...cls,
       icon: cls.icon ?? "",
       useRegex: cls.useRegex ?? false,
+      contentVisibility: cls.contentVisibility ?? "hidden",
+      revealStyle: cls.revealStyle ?? "inline",
+      popoverContentMode: cls.popoverContentMode ?? "simple",
     })),
   };
 }

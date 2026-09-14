@@ -3,6 +3,12 @@ export type InteractionMode = "click" | "hover" | "both";
 export type CursorLinkMode = "atomicOnCollapse" | "alwaysReveal";
 export type HotkeyTarget = "line" | "closest";
 export type BorderStyle = "none" | "solid" | "dashed" | "dotted";
+/** Whether a class's content starts out hidden (a fold) or is always shown (an annotation). */
+export type ContentVisibility = "hidden" | "visible";
+/** For hidden content only: expand in place, or stay hidden and show a floating card on hover/click. */
+export type RevealStyle = "inline" | "popover";
+/** What a popover's body is rendered with. */
+export type PopoverContentMode = "simple" | "rich";
 
 /**
  * A single fold "type": a delimiter pair plus how it should look.
@@ -32,6 +38,19 @@ export interface FoldClass {
   customBorderRadius: string;
   customPadding: string;
   customFontSize: string;
+  /**
+   * "hidden" (default) is the classic fold: content is hidden until
+   * revealed. "visible" turns the class into an inline annotation —
+   * `content` renders as normal, always-visible text, and `alias` (the
+   * part after `|`) becomes the popover shown on hover, e.g.
+   * `[=mitochondria|the powerhouse of the cell=]` renders the word
+   * plainly and shows the definition on hover.
+   */
+  contentVisibility: ContentVisibility;
+  /** Only meaningful when contentVisibility is "hidden". Ignored (always popover) for "visible". */
+  revealStyle: RevealStyle;
+  /** Only meaningful when a popover is actually shown (see core/revealMode.ts). */
+  popoverContentMode: PopoverContentMode;
 }
 
 export interface PluginSettings {

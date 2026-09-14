@@ -1,7 +1,9 @@
-import { App, setIcon } from "obsidian";
+import { App, Component, setIcon } from "obsidian";
 import { FoldClass, FoldNode, PluginSettings } from "../core/types";
 import { InlineNode, parseInlineMarkdown } from "../core/inlineMarkdown";
+import { determineRenderMode } from "../core/revealMode";
 import { applyFoldStyle } from "./styleEngine";
+import { bindPopoverTrigger, renderPopoverContent } from "./popover";
 
 export interface FoldRenderContext {
   classesById: Map<string, FoldClass>;
@@ -11,8 +13,9 @@ export interface FoldRenderContext {
   /** Called after the click handler has already applied the optimistic
    *  local DOM update — responsible for persisting + notifying other views. */
   onToggle: (foldKey: string, node: FoldNode) => void;
-  /** Needed for wikilink navigation. Omit in contexts that don't render
-   *  interactive links (e.g. tests) — wikilinks just render inert then. */
+  /** Needed for wikilink navigation and rich (async) popover content.
+   *  Omit in contexts that don't need either (e.g. tests) — wikilinks
+   *  render inert and popovers fall back to simple content. */
   app?: App;
   sourcePath?: string;
 }
@@ -70,27 +73,31 @@ function renderInlineMarkdownNode(node: InlineNode, ctx: FoldRenderContext): Nod
     case "text":
       return document.createTextNode(node.value);
     case "bold": {
-      const el = createEl("strong");
+      const el = document.createElement("strong");
       for (const child of node.children) el.appendChild(renderInlineMarkdownNode(child, ctx));
       return el;
     }
     case "italic": {
-      const el = createEl("em");
+      const el = document.createElement("em");
       for (const child of node.children) el.appendChild(renderInlineMarkdownNode(child, ctx));
       return el;
     }
     case "code": {
-      const el = createEl("code");
+      const el = document.createElement("code");
       el.textContent = node.value;
       return el;
     }
     case "link": {
-      const el = createEl("a", { attr: { href: node.url, target: "_blank", rel: "noopener" } });
+      const el = document.createElement("a");
+      el.href = node.url;
+      el.target = "_blank";
+      el.rel = "noopener";
       for (const child of node.label) el.appendChild(renderInlineMarkdownNode(child, ctx));
       return el;
     }
     case "wikilink": {
-      const el = createEl("a", { cls: "internal-link" });
+      const el = document.createElement("a");
+      el.className = "internal-link";
       el.textContent = node.alias ?? node.target;
       if (ctx.app) {
         const app = ctx.app;
@@ -106,24 +113,64 @@ function renderInlineMarkdownNode(node: InlineNode, ctx: FoldRenderContext): Nod
   }
 }
 
-/** Renders a single fold node (and, recursively, any nested folds inside it). */
+/**
+ * Renders a single fold node (and, recursively, any nested folds inside
+ * it). Dispatches on determineRenderMode() — see core/revealMode.ts —
+ * to one of three shapes: the classic inline fold, a fold whose content
+ * stays hidden until a popover reveals it, or an always-visible
+ * annotation whose `alias` is shown as a popover definition.
+ */
 export function renderFoldNode(node: FoldNode, ctx: FoldRenderContext): HTMLElement {
   const foldClass = ctx.classesById.get(node.classId);
-  const key = ctx.foldKeys.get(node) ?? `${node.classId}::${node.content}`;
-  const expanded = ctx.isExpanded(key);
+  const mode = determineRenderMode(foldClass);
 
-  const wrapper = createEl("span");
-  const trigger = createEl("span", { cls: "inline-fold-trigger" });
+  if (mode === "annotation") return renderAnnotationNode(node, foldClass, ctx);
+  if (mode === "popover-fold") return renderPopoverFoldNode(node, foldClass, ctx);
+  return renderInlineFoldNode(node, foldClass, ctx);
+}
+
+function buildTrigger(node: FoldNode, foldClass: FoldClass | undefined): HTMLElement {
+  const trigger = document.createElement("span");
+  trigger.className = "inline-fold-trigger";
   if (foldClass?.icon) {
-    const iconEl = createEl("span", { cls: "inline-fold-icon" });
+    const iconEl = document.createElement("span");
+    iconEl.className = "inline-fold-icon";
     setIcon(iconEl, foldClass.icon);
     trigger.appendChild(iconEl);
   }
   const triggerText = node.alias ?? foldClass?.triggerText ?? "?";
   if (triggerText) trigger.appendChild(document.createTextNode(triggerText));
+  return trigger;
+}
 
-  const content = createEl("span", { cls: "inline-fold-content" });
+/** Builds a popover body for `text`, per the class's popoverContentMode. */
+function buildPopoverBody(
+  text: string,
+  foldClass: FoldClass | undefined,
+  ctx: FoldRenderContext,
+): (container: HTMLElement, component: Component) => void | Promise<void> {
+  return (container, component) =>
+    renderPopoverContent(
+      container,
+      text,
+      foldClass?.popoverContentMode ?? "simple",
+      component,
+      ctx.app,
+      ctx.sourcePath,
+      (el, t) => renderInlineMarkdownRun(el, t, ctx),
+    );
+}
 
+/** The classic fold: collapsed trigger badge that expands in place to show its content. */
+function renderInlineFoldNode(node: FoldNode, foldClass: FoldClass | undefined, ctx: FoldRenderContext): HTMLElement {
+  const key = ctx.foldKeys.get(node) ?? `${node.classId}::${node.content}`;
+  const expanded = ctx.isExpanded(key);
+
+  const wrapper = document.createElement("span");
+  const trigger = buildTrigger(node, foldClass);
+
+  const content = document.createElement("span");
+  content.className = "inline-fold-content";
   if (node.children.length > 0) {
     renderInlineContent(content, node.content, node.contentFrom, node.children, ctx);
   } else {
@@ -133,12 +180,50 @@ export function renderFoldNode(node: FoldNode, ctx: FoldRenderContext): HTMLElem
   applyFoldStyle(wrapper, foldClass, expanded);
   wrapper.appendChild(trigger);
   wrapper.appendChild(content);
-  bindFoldEvents(wrapper, foldClass, ctx, key, node, expanded);
+  bindInlineFoldEvents(wrapper, foldClass, ctx, key, node, expanded);
 
   return wrapper;
 }
 
-function bindFoldEvents(
+/** Content stays hidden; hover/click shows it in a floating popover instead of expanding it in place. */
+function renderPopoverFoldNode(node: FoldNode, foldClass: FoldClass | undefined, ctx: FoldRenderContext): HTMLElement {
+  const wrapper = document.createElement("span");
+  const trigger = buildTrigger(node, foldClass);
+
+  applyFoldStyle(wrapper, foldClass, false); // never "expanded" — content never mounts inline in this mode
+  wrapper.appendChild(trigger);
+  bindPopoverTrigger(wrapper, ctx.settings.interactionMode, buildPopoverBody(node.content, foldClass, ctx));
+
+  return wrapper;
+}
+
+/**
+ * Content is always visible, rendered as normal text — this is the
+ * "enrich text" case: a term stays exactly as typed, and `alias` (the
+ * part after `|`) becomes a popover definition shown on hover/click.
+ * With no alias there's nothing to define, so it's rendered as plain
+ * text with no hover affordance at all rather than a misleading one.
+ */
+function renderAnnotationNode(node: FoldNode, foldClass: FoldClass | undefined, ctx: FoldRenderContext): HTMLElement {
+  const wrapper = document.createElement("span");
+  wrapper.className = "inline-fold-annotation";
+  if (foldClass) wrapper.classList.add(`inline-fold-class-${foldClass.id}`);
+
+  if (node.children.length > 0) {
+    renderInlineContent(wrapper, node.content, node.contentFrom, node.children, ctx);
+  } else {
+    renderInlineMarkdownRun(wrapper, node.content, ctx);
+  }
+
+  if (node.alias) {
+    wrapper.classList.add("is-annotated");
+    bindPopoverTrigger(wrapper, ctx.settings.interactionMode, buildPopoverBody(node.alias, foldClass, ctx));
+  }
+
+  return wrapper;
+}
+
+function bindInlineFoldEvents(
   wrapper: HTMLElement,
   foldClass: FoldClass | undefined,
   ctx: FoldRenderContext,

@@ -36,17 +36,6 @@
   height: 0.9em;
 }
 
-.inline-fold-validation-message {
-  font-size: 0.85em;
-  margin-bottom: 8px;
-}
-.inline-fold-collision-warning {
-  color: var(--text-warning);
-}
-.inline-fold-regex-error {
-  color: var(--text-error);
-}
-
 /* Rich content rendered inside a fold's revealed content (bold/italic/
    code/links/wikilinks — see core/inlineMarkdown.ts). Kept minimal and
    inheriting rather than imposing a specific look, since it's rendering
@@ -213,4 +202,61 @@
   border-radius: var(--fold-border-radius, 6px);
   padding: var(--fold-padding, 2px 8px);
   font-size: var(--fold-font-size, inherit);
+}
+
+/* ===================== Annotation ===================== */
+/* Always-visible content ("enrich text" mode) — the word itself carries
+   no themed capsule; only a subtle hover affordance when it actually
+   has a definition attached (.is-annotated). No styling at all when it
+   doesn't, so an annotation class with no alias for this instance
+   doesn't visually promise a hover that has nothing to show. */
+.inline-fold-annotation.is-annotated {
+  cursor: help;
+  border-bottom: 1px dotted var(--text-faint);
+  text-decoration: none;
+}
+.inline-fold-annotation.is-annotated:hover {
+  border-bottom-color: var(--text-accent);
+}
+
+/* ===================== Popover ===================== */
+/* Shared floating card for popover-mode folds and annotations alike —
+   appended to document.body (see render/popover.ts), positioned with
+   getBoundingClientRect(), so it's never clipped by an editor's own
+   scroll container. */
+.inline-fold-popover {
+  position: fixed;
+  z-index: 80;
+  max-width: 340px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+.inline-fold-popover code {
+  font-family: var(--font-monospace);
+  background-color: var(--code-background, var(--background-modifier-form-field));
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.inline-fold-popover :first-child {
+  margin-top: 0;
+}
+.inline-fold-popover :last-child {
+  margin-bottom: 0;
+}
+
+/* ===================== Annotation input modal ===================== */
+.inline-fold-annotation-modal-textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  margin-bottom: 12px;
+  font-family: inherit;
 }
